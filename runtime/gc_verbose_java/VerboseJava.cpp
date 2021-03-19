@@ -256,6 +256,7 @@ gcDumpMemorySizes(J9JavaVM *javaVM)
 	if (extensions->allocationIncrementSetByUser) {
 		gcDumpQualifiedSize(PORTLIB, extensions->allocationIncrement, "-Xmoi", J9NLS_GC_VERB_SIZES_XMOI);
 	}
+	printf("OpenJ9LOG-VerboseJava.cpp: gcDumpMemorySizes() extensions->memoryMax (%lu) \n", extensions->memoryMax);
 	gcDumpQualifiedSize(PORTLIB, extensions->memoryMax, "-Xmx", J9NLS_GC_VERB_SIZES_XMX);
 
 	if (extensions->isStandardGC()) {

@@ -1523,10 +1523,12 @@ gcParseCommandLineAndInitializeWithValues(J9JavaVM *vm, IDATA *memoryParameters)
 
 	memoryParameters[opt_Xmcrs] = index;
 
+	printf("OpenJ9LOG-mmparse.cpp: gcParseCommandLineAndInitializeWithValues extensions->memoryMax (%lu) \n", extensions->memoryMax);
 	result = option_set_to_opt(vm, OPT_XMX, &index, EXACT_MEMORY_MATCH, &extensions->memoryMax);
 	if (OPTION_OK != result) {
 		goto _error;
 	}
+	printf("OpenJ9LOG-mmparse.cpp: gcParseCommandLineAndInitializeWithValues 2 extensions->memoryMax (%lu) \n", extensions->memoryMax);
 	memoryParameters[opt_Xmx] = index;
 
 	result = option_set_to_opt(vm, OPT_SOFTMX, &index, EXACT_MEMORY_MATCH, &extensions->softMx);

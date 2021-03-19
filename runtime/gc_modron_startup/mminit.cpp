@@ -1064,9 +1064,12 @@ gcInitializeXmxXmdxVerification(J9JavaVM *javaVM, IDATA* memoryParameters, bool 
 	PORT_ACCESS_FROM_JAVAVM(javaVM);
 
 	/* Align both Xmx and Xmdx */
+	printf("OpenJ9LOG-mminit.cpp: gcInitializeXmxXmdxVerification extensions->heapAlignment (%lu) extensions->memoryMax (%lu) \n", extensions->heapAlignment, extensions->memoryMax);
 	extensions->memoryMax = MM_Math::roundToFloor(extensions->heapAlignment, extensions->memoryMax);
 	extensions->maxSizeDefaultMemorySpace = MM_Math::roundToFloor(extensions->heapAlignment, extensions->maxSizeDefaultMemorySpace);
+	printf("OpenJ9LOG-mminit.cpp: gcInitializeXmxXmdxVerification extensions->regionSize (%lu) extensions->memoryMax (%lu) \n", extensions->regionSize, extensions->memoryMax);
 	extensions->memoryMax = MM_Math::roundToFloor(extensions->regionSize, extensions->memoryMax);
+	printf("OpenJ9LOG-mminit.cpp: gcInitializeXmxXmdxVerification extensions->memoryMax (%lu) \n", extensions->memoryMax);
 	extensions->maxSizeDefaultMemorySpace = MM_Math::roundToFloor(extensions->regionSize, extensions->maxSizeDefaultMemorySpace);
 
 #if defined (OMR_GC_COMPRESSED_POINTERS)
@@ -1140,8 +1143,10 @@ gcInitializeXmxXmdxVerification(J9JavaVM *javaVM, IDATA* memoryParameters, bool 
 
 #if defined(J9ZTPF)
 	/* Only if Xmx is specified, verify the value doesn't go over usable memory. */
+	printf("OpenJ9LOG-mminit.cpp: gcInitializeXmxXmdxVerification memoryMax (%llu) usablePhysicalMemory (%llu) \n", extensions->memoryMax, extensions->usablePhysicalMemory);
 	if (opt_XmxSet) {
 		if (extensions->memoryMax > extensions->usablePhysicalMemory) {
+			printf("OpenJ9LOG-mminit.cpp: gcInitializeXmxXmdxVerification memoryMax (%llu) usablePhysicalMemory (%llu) 2 \n", extensions->memoryMax, extensions->usablePhysicalMemory);
 			memoryOption1 = "-Xmx";
 			memoryOption2 = NULL;
 			goto _subSpaceTooLargeForHeap;
@@ -2563,13 +2568,19 @@ reduceXmxValueForHeapInitialization(J9JavaVM *javaVM, IDATA *memoryParameterTabl
 		return false;
 	}
 
+	printf("OpenJ9LOG-mminit.cpp: reduceXmxValueForHeapInitialization extensions->memoryMax (%lu) \n", extensions->memoryMax);
 	extensions->memoryMax = (extensions->memoryMax / DEFAULT_XMX_REDUCTION_DENOMINATOR) * DEFAULT_XMX_REDUCTION_NUMERATOR;
+	printf("OpenJ9LOG-mminit.cpp: reduceXmxValueForHeapInitialization 2 extensions->memoryMax (%lu) \n", extensions->memoryMax);
 	extensions->memoryMax = MM_Math::roundToFloor(extensions->heapAlignment, extensions->memoryMax);
+	printf("OpenJ9LOG-mminit.cpp: reduceXmxValueForHeapInitialization extensions->heapAlignment (%lu) extensions->memoryMax (%lu) \n", extensions->heapAlignment, extensions->memoryMax);
 	extensions->memoryMax = MM_Math::roundToFloor(extensions->regionSize, extensions->memoryMax);
+	printf("OpenJ9LOG-mminit.cpp: reduceXmxValueForHeapInitialization extensions->regionSize (%lu) extensions->memoryMax (%lu) \n", extensions->regionSize, extensions->memoryMax);
 
 	/* Don't shrink below the minimum value */
+	printf("OpenJ9LOG-mminit.cpp: reduceXmxValueForHeapInitialization memoryMinimum (%lu) extensions->memoryMax (%lu) \n", memoryMinimum, extensions->memoryMax);
 	if (extensions->memoryMax < memoryMinimum) {
 		extensions->memoryMax = memoryMinimum;
+		printf("OpenJ9LOG-mminit.cpp: reduceXmxValueForHeapInitialization 2 memoryMinimum (%lu) extensions->memoryMax (%lu) \n", memoryMinimum, extensions->memoryMax);
 	}
 
 	/* If Xmdx is now > Xmx, and the Xmdx value was not set by the user, change Xmdx also */
@@ -2883,11 +2894,15 @@ gcInitializeDefaults(J9JavaVM* vm)
 
 	if ((-1 == memoryParameterTable[opt_Xms]) && (-1 != memoryParameterTable[opt_initialRAMPercent])) {
 		extensions->initialMemorySize = (uintptr_t)(((double)extensions->usablePhysicalMemory / 100.0) * extensions->initialRAMPercent);
+		printf("OpenJ9LOG-mminit.cpp: gcInitializeDefaults initialMemorySize (%lu) usablePhysicalMemory (%llu) initialRAMPercent (%f) \n",
+			extensions->initialMemorySize, extensions->usablePhysicalMemory, extensions->initialRAMPercent);
 		/* Update memory parameter table to appear that -Xms was specified */
 		memoryParameterTable[opt_Xms] = memoryParameterTable[opt_initialRAMPercent];
 	}
 	if ((-1 == memoryParameterTable[opt_Xmx]) && (-1 != memoryParameterTable[opt_maxRAMPercent])) {
 		extensions->memoryMax = (uintptr_t)(((double)extensions->usablePhysicalMemory / 100.0) * extensions->maxRAMPercent);
+		printf("OpenJ9LOG-mminit.cpp: gcInitializeDefaults memoryMax (%lu) usablePhysicalMemory (%llu) maxRAMPercent (%f) \n",
+			extensions->memoryMax, extensions->usablePhysicalMemory, extensions->maxRAMPercent);
 		/* Update memory parameter table to appear that -Xmx was specified */
 		memoryParameterTable[opt_Xmx] = memoryParameterTable[opt_maxRAMPercent];
 	}

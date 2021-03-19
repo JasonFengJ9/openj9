@@ -243,6 +243,7 @@ MM_GCExtensions::computeDefaultMaxHeapForJava(bool enableOriginalJDK8HeapSizeCom
 {
 	OMRPORT_ACCESS_FROM_OMRVM(_omrVM);
 
+	printf("OpenJ9LOG-GCExtensions.cpp: computeDefaultMaxHeapForJava memoryMax (%lu) start!\n", memoryMax);
 	if (OMR_CGROUP_SUBSYSTEM_MEMORY == omrsysinfo_cgroup_are_subsystems_enabled(OMR_CGROUP_SUBSYSTEM_MEMORY)) {
 		if (omrsysinfo_cgroup_is_memlimit_set()) {
 			/* If running in a cgroup with memory limit > 1G, reserve at-least 512M for JVM's internal requirements
@@ -252,7 +253,9 @@ MM_GCExtensions::computeDefaultMaxHeapForJava(bool enableOriginalJDK8HeapSizeCom
 			 */
 #define OPENJ9_IN_CGROUP_NATIVE_FOOTPRINT_EXCLUDING_HEAP ((U_64)512 * 1024 * 1024)
 			memoryMax = (uintptr_t)OMR_MAX((int64_t)(usablePhysicalMemory / 2), (int64_t)(usablePhysicalMemory - OPENJ9_IN_CGROUP_NATIVE_FOOTPRINT_EXCLUDING_HEAP));
+			printf("OpenJ9LOG-GCExtensions.cpp: computeDefaultMaxHeapForJava usablePhysicalMemory (%llu) memoryMax (%lu) \n", usablePhysicalMemory, memoryMax);
 			memoryMax = (uintptr_t)OMR_MIN(memoryMax, (usablePhysicalMemory / 4) * 3);
+			printf("OpenJ9LOG-GCExtensions.cpp: computeDefaultMaxHeapForJava usablePhysicalMemory (%llu) memoryMax (%lu) 2 \n", usablePhysicalMemory, memoryMax);
 #undef OPENJ9_IN_CGROUP_NATIVE_FOOTPRINT_EXCLUDING_HEAP
 		}
 	}
@@ -261,13 +264,16 @@ MM_GCExtensions::computeDefaultMaxHeapForJava(bool enableOriginalJDK8HeapSizeCom
 	if (!enableOriginalJDK8HeapSizeCompatibilityOption) {
 		/* extend java default max memory to 25% of usable RAM */
 		memoryMax = OMR_MAX(memoryMax, usablePhysicalMemory / 4);
+		printf("OpenJ9LOG-GCExtensions.cpp: computeDefaultMaxHeapForJava usablePhysicalMemory (%llu) memoryMax (%lu) 3 \n", usablePhysicalMemory, memoryMax);
 	}
 
 	/* limit maxheapsize up to MAXIMUM_HEAP_SIZE_RECOMMENDED_FOR_3BIT_SHIFT_COMPRESSEDREFS, then can set 3bit compressedrefs as the default */
 	memoryMax = OMR_MIN(memoryMax, MAXIMUM_HEAP_SIZE_RECOMMENDED_FOR_3BIT_SHIFT_COMPRESSEDREFS);
+	printf("OpenJ9LOG-GCExtensions.cpp: computeDefaultMaxHeapForJava usablePhysicalMemory (%llu) memoryMax (%lu) 4 \n", usablePhysicalMemory, memoryMax);
 #endif /* OMR_ENV_DATA64 */
 
 	memoryMax = MM_Math::roundToFloor(heapAlignment, memoryMax);
+	printf("OpenJ9LOG-GCExtensions.cpp: computeDefaultMaxHeapForJava memoryMax (%lu) 5 \n", memoryMax);
 	maxSizeDefaultMemorySpace = memoryMax;
 }
 
