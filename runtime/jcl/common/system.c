@@ -72,6 +72,7 @@ jstring JNICALL Java_java_lang_System_getEncoding(JNIEnv *env, jclass clazz, jin
 
 jobject JNICALL Java_java_lang_System_getPropertyList(JNIEnv *env, jclass clazz)
 {
+	printf("system.c:Java_java_lang_System_getPropertyList() --> getPropertyList() \n");
 	return getPropertyList(env);
 }
 
@@ -379,6 +380,7 @@ jobject getPropertyList(JNIEnv *env)
 		propIndex += 1;
 	}
 
+	printf("system.c:getPropertyList() --> getPlatformPropertyList() \n");
 	propertyList = getPlatformPropertyList(env, strings, propIndex);
 	if (NULL != usernameAlloc) {
 		jclmem_free_memory(env, usernameAlloc);

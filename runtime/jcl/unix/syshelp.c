@@ -141,6 +141,8 @@ jobject getPlatformPropertyList(JNIEnv * env, const char *strings[], int propInd
 	strings[propIndex++] = "line.separator";
 	strings[propIndex++] = "\n";
 
+	printf("syshelp.c:getPlatformPropertyList() - line.separator is set to unix styple nl! \n");
+
 	/* Get the directory where the executable was started */
 	strings[propIndex++] = "user.dir";
 #ifndef ARM_EMULATED
