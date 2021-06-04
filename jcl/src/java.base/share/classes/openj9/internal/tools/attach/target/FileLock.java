@@ -41,7 +41,7 @@ public final class FileLock {
 	private static syncObject shutdownSync = new syncObject();
 	static boolean terminated;
 	private volatile java.nio.channels.FileLock lockObject;
-	private  volatile RandomAccessFile lockFileRAF;
+	private volatile RandomAccessFile lockFileRAF;
 
 	boolean isLocked() {
 		return locked;
@@ -52,9 +52,10 @@ public final class FileLock {
 		if (null == filePath) {
 			throw new NullPointerException("filePath is null"); //$NON-NLS-1$
 		}
-		lockFilepath= filePath;
+		lockFilepath = filePath;
 		fileMode = mode;
 		lockObject = null;
+		lockFileRAF = null;
 	}
 
 	/**
@@ -110,6 +111,9 @@ public final class FileLock {
 				locked = true;
 			} catch (IOException e) {
 				locked = false;
+				if (LOGGING_DISABLED != loggingStatus) {
+					IPC.logMessage("Blocking lock failed with lockFilepath = " + lockFilepath, e); //$NON-NLS-1$
+				}
 			}
 			synchronized (shutdownSync) { 
 				if (null != fileLockWatchdogTimer) { 
@@ -133,9 +137,17 @@ public final class FileLock {
 			IPC.logMessage("closing ", lockFilepath);  //$NON-NLS-1$
 			try {
 				lockObjectCopy.release();
+			} catch (IOException e) {
+				IPC.logMessage("IOException at lockObjectCopy.release() with lockFilepath = " + lockFilepath, e); //$NON-NLS-1$
+			}
+		}
+		if (lockFileRAF != null) {
+			try {
 				lockFileRAF.close();
 			} catch (IOException e) {
-				IPC.logMessage("IOException unlocking file "+lockFilepath, e); //$NON-NLS-1$
+				if (LOGGING_DISABLED != loggingStatus) {
+					IPC.logMessage("IOException at lockFileRAF.close() with lockFilepath = " + lockFilepath); //$NON-NLS-1$
+				}
 			}
 		}
 		if (locked && (fileDescriptor >= 0)) {
