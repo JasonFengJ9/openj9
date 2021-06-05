@@ -1,6 +1,6 @@
 /*[INCLUDE-IF Sidecar18-SE]*/
 /*******************************************************************************
- * Copyright (c) 2010, 2018 IBM Corp. and others
+ * Copyright (c) 2010, 2021 IBM Corp. and others
  *
  * This program and the accompanying materials are made available under
  * the terms of the Eclipse Public License 2.0 which accompanies this
@@ -32,14 +32,14 @@ import static openj9.internal.tools.attach.target.IPC.LOGGING_DISABLED;
 import static openj9.internal.tools.attach.target.IPC.loggingStatus;
 
 public final class FileLock {
-	long fileDescriptor;
-	String lockFilepath;
-	int fileMode;
-	private boolean locked;
+	private volatile long fileDescriptor;
+	private String lockFilepath;
+	private int fileMode;
+	private volatile boolean locked;
 	private static FilelockTimer fileLockWatchdogTimer;
-	static final class syncObject {};
-	private static syncObject shutdownSync = new syncObject();
-	static boolean terminated;
+	private static final class SyncObject {};
+	private static SyncObject shutdownSync = new SyncObject();
+	private static boolean terminated;
 	private volatile java.nio.channels.FileLock lockObject;
 	private volatile RandomAccessFile lockFileRAF;
 
@@ -48,6 +48,7 @@ public final class FileLock {
 	}
 
 	public FileLock(String filePath, int mode) {
+		fileDescriptor = -1;
 		locked = false;
 		if (null == filePath) {
 			throw new NullPointerException("filePath is null"); //$NON-NLS-1$
@@ -95,17 +96,20 @@ public final class FileLock {
 					 * This timeout affects only the operation of the attach API.  It may delay the start of the attach API (but will not affect
 					 * other aspects of the VM or application launch) or delay an attach attempt.  It will not delay the VM or attach API shutdown.
 					 */
-				fileLockWatchdogTimer.schedule(wdog, FILE_LOCK_TIMEOUT);
+					fileLockWatchdogTimer.schedule(wdog, FILE_LOCK_TIMEOUT);
 				}
 				else {
+					IPC.logMessage("lockFile returns false."); //$NON-NLS-1$
 					return false;
 				}
 			}
 			
 			/*[PR 199171] native file locking is not interruptible from Java */
 			try {
+				IPC.logMessage("before RandomAccessFile()."); //$NON-NLS-1$
 				lockFileRAF = new RandomAccessFile(lockFilepath, "rw"); //$NON-NLS-1$
 				FileChannel lockFileChannel = lockFileRAF.getChannel();
+				IPC.logMessage("before lockFileChannel.lock()."); //$NON-NLS-1$
 				lockObject = lockFileChannel.lock();
 				IPC.logMessage("Blocking lock succeeded"); //$NON-NLS-1$
 				locked = true;
@@ -120,6 +124,8 @@ public final class FileLock {
 					wdog.cancel();
 				}
 			}
+		} else {
+			IPC.logMessage("locking file succeeded, locked = " + locked); //$NON-NLS-1$
 		}
 
 		return locked;
@@ -141,7 +147,8 @@ public final class FileLock {
 				IPC.logMessage("IOException at lockObjectCopy.release() with lockFilepath = " + lockFilepath, e); //$NON-NLS-1$
 			}
 		}
-		if (lockFileRAF != null) {
+		RandomAccessFile lockFileRAFCopy = lockFileRAF;
+		if (lockFileRAFCopy != null) {
 			try {
 				lockFileRAF.close();
 			} catch (IOException e) {
@@ -151,6 +158,9 @@ public final class FileLock {
 			}
 		}
 		if (locked && (fileDescriptor >= 0)) {
+			if (LOGGING_DISABLED != loggingStatus) {
+				IPC.logMessage("Start unlockFileImpl fileDescriptor " + fileDescriptor); //$NON-NLS-1$
+			}
 			unlockFileImpl(fileDescriptor);
 		}
 		locked = false;
