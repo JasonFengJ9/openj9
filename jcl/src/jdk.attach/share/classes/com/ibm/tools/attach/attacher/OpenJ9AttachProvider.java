@@ -86,6 +86,7 @@ public class OpenJ9AttachProvider extends AttachProvider {
 		}
 
 		OpenJ9VirtualMachine vm = new OpenJ9VirtualMachine(this, descriptor.id());
+		IPC.logMessage("Attach target descriptor.id(): " + descriptor.id()); //$NON-NLS-1$
 		vm.attachTarget();
 		return vm;
 	}
@@ -110,6 +111,7 @@ public class OpenJ9AttachProvider extends AttachProvider {
 	}
 
 	private List<VirtualMachineDescriptor> listVirtualMachinesImp() {
+		IPC.logMessage("listVirtualMachines() starts."); //$NON-NLS-1$
 		AttachHandler.waitForAttachApiInitialization(); /* ignore result: we can list targets if API is disabled */
 		/* Figure out where the IPC metadata lives and validate */
 		File commonDir = CommonDirectory.getCommonDirFileObject();
@@ -123,10 +125,13 @@ public class OpenJ9AttachProvider extends AttachProvider {
 		} else if (!commonDir.isDirectory()) { /* Cleanup. handle case where couldn't open common dir. */
 			IPC.logMessage("listVirtualMachines() common directory is mis-configured for " + commonDir.getAbsolutePath()); //$NON-NLS-1$
 			return null; /* Configuration error */
+		} else {
+			IPC.logMessage("listVirtualMachines() common directory is : " + commonDir.getAbsolutePath()); //$NON-NLS-1$
 		}
 
 		try {
 			CommonDirectory.obtainControllerLock(); /*[PR 164751 avoid scanning the directory when an attach API is launching ]*/
+			IPC.logMessage("listVirtualMachines() CommonDirectory.obtainControllerLock() succeeded."); //$NON-NLS-1$
 		} catch (IOException e) { /*[PR 164751 avoid scanning the directory when an attach API is launching ]*/
 			/* 
 			 * IOException is thrown if we already have the lock. The only other cases where we lock this file are during startup and shutdown.
@@ -135,11 +140,23 @@ public class OpenJ9AttachProvider extends AttachProvider {
 			IPC.logMessage("listVirtualMachines() IOError on controller lock : ", e.toString()); //$NON-NLS-1$
 			return descriptors; /* An error has occurred. Since the attach API is not working correctly, be conservative and don't list and targets */
 		}
+		
+		File[] vmDirs;
 		try {
-			File[] vmDirs = commonDir.listFiles();
+			vmDirs = commonDir.listFiles();
+		} finally {
+			IPC.logMessage("listVirtualMachines() CommonDirectory.releaseControllerLock()."); //$NON-NLS-1$
+			CommonDirectory.releaseControllerLock(); /* guarantee that we unlock the file */
+		}
+
+//		try {
+//			File[] vmDirs = commonDir.listFiles();
 			if (vmDirs == null) {
 				/* an IOException on listFiles will cause vmDirs to be null */
+				IPC.logMessage("listVirtualMachines() vmDirs is null."); //$NON-NLS-1$
 				return descriptors;
+			} else {
+				IPC.logMessage("listVirtualMachines() commonDir.listFiles succeeded."); //$NON-NLS-1$
 			}
 
 			long myUid = IPC.getUid();
@@ -181,9 +198,11 @@ public class OpenJ9AttachProvider extends AttachProvider {
 					TargetDirectory.deleteTargetDirectory(f.getName());
 				}
 			}
-		} finally {
-			CommonDirectory.releaseControllerLock(); /* guarantee that we unlock the file */
-		}
+//		} finally {
+//			IPC.logMessage("listVirtualMachines() CommonDirectory.releaseControllerLock()."); //$NON-NLS-1$
+//			CommonDirectory.releaseControllerLock(); /* guarantee that we unlock the file */
+//		}
+		IPC.logMessage("listVirtualMachines() returns descriptors."); //$NON-NLS-1$
 		return descriptors;
 	}
 
