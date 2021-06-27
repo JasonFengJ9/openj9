@@ -622,7 +622,7 @@ public class AttachHandler extends Thread {
 					--waitCycles;
 					try {
 						/* assignments to stateSync cause a notifyAll on stateSync */
-						stateSync.wait(100000); /* timeout value */
+						stateSync.wait(50000); /* timeout value */
 						currentState = getAttachState();
 						switch (currentState) {
 						case ATTACH_STARTING:

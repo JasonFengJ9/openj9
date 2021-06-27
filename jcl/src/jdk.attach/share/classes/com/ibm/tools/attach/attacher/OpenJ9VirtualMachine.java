@@ -168,6 +168,8 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 		}
 		if (null != lastException) {
 			throw lastException;
+		} else {
+			IPC.logMessage("attachTargetImpl() finished."); //$NON-NLS-1$
 		}
 	}
 
@@ -427,10 +429,15 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 		synchronized (myIn) {
 			int numberOfTargets = 0;
 			try {
+				IPC.logMessage("before CommonDirectory.obtainAttachLock()"); //$NON-NLS-1$
 				CommonDirectory.obtainAttachLock();
+				IPC.logMessage("after CommonDirectory.obtainAttachLock()"); //$NON-NLS-1$
 				List<VirtualMachineDescriptor> vmds = myProvider.listVirtualMachines();
 				if (null == vmds) {
+					IPC.logMessage("myProvider.listVirtualMachines() returns null."); //$NON-NLS-1$
 					return;
+				} else {
+					IPC.logMessage("myProvider.listVirtualMachines() returns."); //$NON-NLS-1$
 				}
 
 				targetServer = new ServerSocket(0); /* select a free port */
@@ -438,6 +445,7 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 				String key = IPC.getRandomString();
 				replyFile = new Reply(portNumber, key, TargetDirectory.getTargetDirectoryPath(descriptor.id()), descriptor.getUid());
 				try {
+					IPC.logMessage("before replyFile.writeReply()."); //$NON-NLS-1$
 					replyFile.writeReply();
 				} catch (IOException e) { /*
 										 * target shut down while we were trying
@@ -446,6 +454,7 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 					/*[MSG "K0457", "Target no longer available"]*/
 					AttachNotSupportedException exc = new AttachNotSupportedException(getString("K0457")); //$NON-NLS-1$
 					exc.initCause(e);
+					IPC.logMessage("tryAttachTarget : Target no longer available."); //$NON-NLS-1$
 					throw exc;
 				}
 
