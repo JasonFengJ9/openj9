@@ -32,14 +32,14 @@ import static openj9.internal.tools.attach.target.IPC.LOGGING_DISABLED;
 import static openj9.internal.tools.attach.target.IPC.loggingStatus;
 
 public final class FileLock {
-	private volatile long fileDescriptor;
-	private String lockFilepath;
-	private int fileMode;
-	private volatile boolean locked;
+	/* private volatile */ long fileDescriptor;
+	/* private */ String lockFilepath;
+	/* private */ int fileMode;
+	private /* volatile */ boolean locked;
 	private static FilelockTimer fileLockWatchdogTimer;
-	private static final class SyncObject {};
+	/* private */ static final class SyncObject {};
 	private static SyncObject shutdownSync = new SyncObject();
-	private static boolean terminated;
+	/* private */ static boolean terminated;
 	private volatile java.nio.channels.FileLock lockObject;
 	private volatile RandomAccessFile lockFileRAF;
 
@@ -56,7 +56,7 @@ public final class FileLock {
 		lockFilepath = filePath;
 		fileMode = mode;
 		lockObject = null;
-		lockFileRAF = null;
+//		lockFileRAF = null;
 	}
 
 	/**
@@ -71,7 +71,7 @@ public final class FileLock {
 			IPC.logMessage(blocking? "locking file ": "non-blocking locking file ", lockFilepath);  //$NON-NLS-1$//$NON-NLS-2$
 		}
 		
-		final int FILE_LOCK_TIMEOUT = 30 * 1000; /* time in milliseconds */
+		final int FILE_LOCK_TIMEOUT = 20 * 1000; /* time in milliseconds */
 		if (locked) {
 			/*[MSG "K0574", "file already locked"]*/
 			throw new IOException(com.ibm.oti.util.Msg.getString("K0574")); //$NON-NLS-1$
@@ -140,13 +140,17 @@ public final class FileLock {
 		}
 		java.nio.channels.FileLock lockObjectCopy = lockObject;
 		if (null != lockObjectCopy) {
-			IPC.logMessage("closing ", lockFilepath);  //$NON-NLS-1$
+			IPC.logMessage("closing 1", lockFilepath);  //$NON-NLS-1$
 			try {
 				lockObjectCopy.release();
+				IPC.logMessage("closing 2", lockFilepath);  //$NON-NLS-1$
+				lockFileRAF.close();
+				IPC.logMessage("closing 3", lockFilepath);  //$NON-NLS-1$
 			} catch (IOException e) {
 				IPC.logMessage("IOException at lockObjectCopy.release() with lockFilepath = " + lockFilepath, e); //$NON-NLS-1$
 			}
 		}
+/*
 		RandomAccessFile lockFileRAFCopy = lockFileRAF;
 		if (lockFileRAFCopy != null) {
 			try {
@@ -157,6 +161,7 @@ public final class FileLock {
 				}
 			}
 		}
+*/
 		if (locked && (fileDescriptor >= 0)) {
 			if (LOGGING_DISABLED != loggingStatus) {
 				IPC.logMessage("Start unlockFileImpl fileDescriptor " + fileDescriptor); //$NON-NLS-1$
