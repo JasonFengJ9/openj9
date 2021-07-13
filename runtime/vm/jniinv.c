@@ -869,7 +869,18 @@ jint JNICALL GetEnv(JavaVM *jvm, void **penv, jint version)
 #endif /* defined(J9VM_OPT_JAVA_OFFLOAD_SUPPORT) */
 
    if (!jniVersionIsValid((UDATA)version)) {
-		return JNI_EVERSION;
+#if JAVA_SPEC_VERSION >= 11
+		/* A JVMTI environment can be obtained through the JNI Invocation API GetEnv function.
+		 * https://docs.oracle.com/en/java/javase/11/docs/specs/jvmti.html
+		 * JVMTI 11+ with mino/micro versions are not accepted, this could change if such support is added explicitly.
+	 	 */
+		if (!(J9_ARE_ALL_BITS_SET(version, JVMTI_VERSION_INTERFACE_JVMTI)
+				&& J9_ARE_NO_BITS_SET(version, JVMTI_VERSION_MASK_MINOR|JVMTI_VERSION_MASK_MICRO)
+				&& (((version & JVMTI_VERSION_MASK_MAJOR) >> JVMTI_VERSION_SHIFT_MAJOR) <= JAVA_SPEC_VERSION))
+		) {
+			return JNI_EVERSION;
+		}
+#endif /* JAVA_SPEC_VERSION >= 11 */
 	}
 
 	*penv = (void *)vmThread;
