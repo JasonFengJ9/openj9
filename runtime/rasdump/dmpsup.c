@@ -568,7 +568,7 @@ configureDumpAgents(J9JavaVM *vm, J9VMInitArgs *j9vm_args, BOOLEAN isBootup)
 
 	/* Load up the default agents */
 	for (i = 0; i < numDefaultAgents; i++) {
-		char *typeString = defaultAgents[i].type;
+		const char *typeString = defaultAgents[i].type;
 		agentOpts[agentNum].kind = scanDumpType(&typeString);
 		agentOpts[agentNum].flags = J9RAS_DUMP_OPT_ARGS_STATIC;
 		agentOpts[agentNum].args = defaultAgents[i].args;
@@ -675,14 +675,14 @@ configureDumpAgents(J9JavaVM *vm, J9VMInitArgs *j9vm_args, BOOLEAN isBootup)
 					agentNum++;
 				}
 			} else if (isMappedToolDump) {
-				char * toolString = "tool";
+				const char * toolString = "tool";
 				agentOpts[agentNum].kind = scanDumpType(&toolString);
 				agentOpts[agentNum].flags = J9RAS_DUMP_OPT_ARGS_ALLOC;
 				agentOpts[agentNum].args = optionString;
 				agentOpts[agentNum].pass = J9RAS_DUMP_OPTS_PASS_ONE;
 				agentNum++;
 			} else {
-				char *typeString = optionString;
+				const char *typeString = optionString;
 
 				/* Find group dump settings */
 				optionString += strcspn(typeString, ":");
@@ -977,8 +977,8 @@ setDumpOption(struct J9JavaVM *vm, char *optionString)
 	}
 	else if (lockConfigForUpdate())
 	{
-		char *typeString = optionString;
-		char *checkTypeString = typeString;
+		const char *typeString = optionString;
+		const char *checkTypeString = typeString;
 		IDATA kind;
 
 		/* Find group dump settings */
@@ -1652,7 +1652,7 @@ processZOSDumpOptions(J9JavaVM *vm, J9RASdumpOption* agentOpts, int optIndex)
 {
 	char* ceedump = NULL;
 	char* ieatdump = NULL;
-	char* typeString = "system";
+	const char* typeString = "system";
 	IDATA i = optIndex;
 	IDATA kind;
 	char* opts;

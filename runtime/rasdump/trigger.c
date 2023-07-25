@@ -209,7 +209,7 @@ parseAllocationRange(char *range, UDATA *min, UDATA *max)
 static J9RASdumpMatchResult
 matchesObjectAllocationFilter(J9RASdumpEventData *eventData, char *filter)
 {
-	char *message = eventData->detailData;
+	const char *message = eventData->detailData;
 	char *msgPtr = NULL;
 	UDATA msgValue = 0;
 	char msgText[20];
@@ -252,7 +252,7 @@ matchesObjectAllocationFilter(J9RASdumpEventData *eventData, char *filter)
 static J9RASdumpMatchResult
 matchesSlowExclusiveEnterFilter(J9RASdumpEventData *eventData, char *filter)
 {
-	char *message = eventData->detailData;
+	const char *message = eventData->detailData;
 	char *msgPtr = NULL;
 	IDATA msgValue = 0;
 	char msgText[20];
@@ -301,7 +301,7 @@ matchesSlowExclusiveEnterFilter(J9RASdumpEventData *eventData, char *filter)
 static J9RASdumpMatchResult
 matchesVMShutdownFilter(J9RASdumpEventData *eventData, char *filter)
 {
-	char *message = eventData->detailData;
+	char *message = (char*)eventData->detailData;
 	IDATA value;
 	
 	/* Numeric range comparison? */
@@ -344,7 +344,7 @@ static J9RASdumpMatchResult
 matchesExceptionFilter(J9VMThread *vmThread, J9RASdumpEventData *eventData, UDATA eventFlags, char *filter, char *subFilter)
 {
 	PORT_ACCESS_FROM_VMC(vmThread);
-	char *message = eventData->detailData;
+	const char *message = eventData->detailData;
 	UDATA nbytes = eventData->detailLength;
 	UDATA buflen = 0;
 	char *buf = NULL;
@@ -846,7 +846,7 @@ dumpLabel(struct J9JavaVM *vm, J9RASdumpAgent *agent, J9RASdumpContext *context,
 }
 
 omr_error_t
-triggerOneOffDump(struct J9JavaVM *vm, char *optionString, char *caller, char *fileName, size_t fileNameLength)
+triggerOneOffDump(struct J9JavaVM *vm, const char *optionString, const char *caller, char *fileName, size_t fileNameLength)
 {
 	IDATA kind;
 	omr_error_t retVal = OMR_ERROR_INTERNAL;
@@ -932,7 +932,7 @@ triggerDumpAgents(struct J9JavaVM *vm, struct J9VMThread *self, UDATA eventFlags
 		U_64 now = j9time_current_time_millis();
 
 		UDATA detailLength = eventData ? eventData->detailLength : 0;
-		char *detailData = detailLength ? eventData->detailData : "";
+		const char *detailData = detailLength ? eventData->detailData : "";
 		char detailBuf[J9_MAX_DUMP_DETAIL_LENGTH + 1];
 
 		J9RASdumpContext context;

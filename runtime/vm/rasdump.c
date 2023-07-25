@@ -50,7 +50,7 @@
 static omr_error_t primordialTriggerDumpAgents (struct J9JavaVM *vm, struct J9VMThread *self, UDATA eventFlags, struct J9RASdumpEventData *eventData);
 static omr_error_t primordialSeekDumpAgent (struct J9JavaVM *vm, struct J9RASdumpAgent **agentPtr, J9RASdumpFn dumpFn);
 static omr_error_t primordialInsertDumpAgent (struct J9JavaVM *vm, struct J9RASdumpAgent *agent);
-static omr_error_t primordialTriggerOneOffDump(struct J9JavaVM *vm, char *optionString, char *caller, char *fileName, size_t fileNameLength);
+static omr_error_t primordialTriggerOneOffDump(struct J9JavaVM *vm, const char *optionString, const char *caller, char *fileName, size_t fileNameLength);
 static omr_error_t primordialSetDumpOption (struct J9JavaVM *vm, char *optionString);
 static omr_error_t primordialResetDumpOption (struct J9JavaVM *vm);
 static omr_error_t primordialRemoveDumpAgent (struct J9JavaVM *vm, struct J9RASdumpAgent *agent);
@@ -89,7 +89,7 @@ primordialDumpFacade = {
 };
 
 static omr_error_t
-primordialTriggerOneOffDump(struct J9JavaVM *vm, char *optionString, char *caller, char *fileName, size_t fileNameLength)
+primordialTriggerOneOffDump(struct J9JavaVM *vm, const char *optionString, const char *caller, char *fileName, size_t fileNameLength)
 {
 	PORT_ACCESS_FROM_JAVAVM(vm);
 

@@ -232,7 +232,7 @@ mapDumpDefaults(J9JavaVM *vm, J9RASdumpOption agentOpts[], IDATA *agentNum)
 		/* Apply default? */
 		if ( defaultString ) {
 
-			char *typeString = dgDefaults[i].typeString;
+			const char *typeString = dgDefaults[i].typeString;
 
 			strcpy(buf, "defaults:");
 			strcat(buf, defaultString);
@@ -316,7 +316,7 @@ mapDumpOptions(J9JavaVM *vm, J9RASdumpOption agentOpts[], IDATA *agentNum)
 	
 	/* Don't map tool dumps if environment variable is missing */
 	if (j9sysinfo_get_env("JAVA_DUMP_TOOL", NULL, 0) == -1) {
-		char *typeString = "tool";
+		const char *typeString = "tool";
 		kind = scanDumpType(&typeString);
 		for (i = 0; i < *agentNum; i++) {
 			if (agentOpts[i].kind == kind) {
@@ -336,7 +336,8 @@ mapDumpActions(J9JavaVM *vm, J9RASdumpOption agentOpts[], IDATA *agentNum, char 
 {
 	IDATA i, j;
 	IDATA kind, countChars, length;
-	char *actionsRHS, *countRHS, *typeString;
+	char *actionsRHS, *countRHS;
+	const char *typeString;
 	char *eventString = NULL;
 	BOOLEAN allocatedEventStringAlreadyUsed = FALSE;
 
@@ -440,7 +441,8 @@ mapDumpSwitches(J9JavaVM *vm, J9RASdumpOption agentOpts[], IDATA *agentNum)
 
 	PORT_ACCESS_FROM_JAVAVM(vm);
 
-	char *optionString, *typeString;
+	char *optionString;
+	const char *typeString = NULL;
 	char buf[J9_MAX_DUMP_PATH];
 	BOOLEAN offSelected;
 
@@ -515,7 +517,7 @@ disableDumpOnOutOfMemoryError(J9RASdumpOption agentOpts[], IDATA agentNum)
 	UDATA kindCursor = 0;
 
 	for (kindCursor = 0; kindCursor < numOomSettings; ++kindCursor) {
-		char *typeString = (char *) oomDefaultTable[kindCursor].typeString;
+		const char *typeString = oomDefaultTable[kindCursor].typeString;
 		IDATA disableKind = scanDumpType(&typeString);
 		IDATA j = 0;
 		for (j = 0; j < agentNum; j++) {
@@ -539,7 +541,7 @@ enableDumpOnOutOfMemoryError(J9RASdumpOption agentOpts[], IDATA *agentNum)
 	UDATA kindCursor = 0;
 
 	for (kindCursor = 0; kindCursor < numOomSettings; ++kindCursor) {
-		char *typeString = (char *) oomDefaultTable[kindCursor].typeString;
+		const char *typeString = oomDefaultTable[kindCursor].typeString;
 		IDATA enableKind = scanDumpType(&typeString);
 		if (enableKind < 0) {
 			continue;
@@ -570,7 +572,7 @@ mapDumpSettings(J9JavaVM *vm, J9RASdumpOption agentOpts[], IDATA *agentNum)
 
 		/* Tack on user setting */
 		if (j9sysinfo_get_env(dgSettings[i].name, buf + len, J9_MAX_DUMP_PATH - len) == 0) {
-			char *typeString = dgSettings[i].typeString;
+			const char *typeString = dgSettings[i].typeString;
 
 			/* Handle multiple dump types */
 			for (;;) {

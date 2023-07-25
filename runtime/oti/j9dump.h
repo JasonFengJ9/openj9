@@ -119,7 +119,7 @@ typedef struct J9RASdumpContext {
 
 typedef struct J9RASdumpEventData {
 	UDATA detailLength;
-	char* detailData;
+	const char* detailData;
 	j9object_t* exceptionRef;
 } J9RASdumpEventData;
 
@@ -127,7 +127,7 @@ typedef omr_error_t (*J9RASdumpFn)(struct J9RASdumpAgent *agent, char *label, st
 
 typedef struct J9RASdumpFunctions {
 	void* reserved;
-	omr_error_t  (*triggerOneOffDump)(struct J9JavaVM *vm, char *optionString, char *caller, char *fileName, size_t fileNameLength) ;
+	omr_error_t  (*triggerOneOffDump)(struct J9JavaVM *vm, const char *optionString, const char *caller, char *fileName, size_t fileNameLength) ;
 	omr_error_t  (*insertDumpAgent)(struct J9JavaVM *vm, struct J9RASdumpAgent *agent) ;
 	omr_error_t  (*removeDumpAgent)(struct J9JavaVM *vm, struct J9RASdumpAgent *agent) ;
 	omr_error_t  (*seekDumpAgent)(struct J9JavaVM *vm, struct J9RASdumpAgent **agentPtr, J9RASdumpFn dumpFn) ;

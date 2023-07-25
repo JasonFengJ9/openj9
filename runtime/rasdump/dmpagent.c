@@ -192,7 +192,7 @@ static omr_error_t makePath (J9JavaVM *vm, char *label);
 static char* allocString (J9JavaVM *vm, UDATA numBytes);
 static omr_error_t mergeAgent (J9JavaVM *vm, J9RASdumpAgent *agent, const J9RASdumpSettings *settings);
 static IDATA fixDumpLabel (J9JavaVM *vm, const J9RASdumpSpec *spec, char **labelPtr, IDATA newLabel);
-static UDATA processSettings (J9JavaVM *vm, IDATA kind, char *optionString, J9RASdumpSettings *settings);
+static UDATA processSettings (J9JavaVM *vm, IDATA kind, const char *optionString, J9RASdumpSettings *settings);
 static J9RASdumpAgent* findAgent (J9JavaVM *vm, IDATA kind, const J9RASdumpSettings *settings);
 static char* scanString (J9JavaVM *vm, const char **cursor);
 #if defined(J9ZOS390)
@@ -1484,10 +1484,10 @@ fixDumpLabel(J9JavaVM *vm, const J9RASdumpSpec *spec, char **labelPtr, IDATA new
 
 
 static UDATA
-processSettings(J9JavaVM *vm, IDATA kind, char *optionString, J9RASdumpSettings *settings)
+processSettings(J9JavaVM *vm, IDATA kind, const char *optionString, J9RASdumpSettings *settings)
 {
 	const J9RASdumpSpec *spec = &rasDumpSpecs[kind];
-	char **cursor = &optionString;
+	char **cursor = (char**)&optionString;
 
 	PORT_ACCESS_FROM_JAVAVM(vm);
 
@@ -2004,7 +2004,7 @@ printDumpRequests(struct J9JavaVM *vm, UDATA bits, IDATA verbose)
 }
 
 static IDATA
-writeIntoBuffer(void* buffer, IDATA buffer_length, IDATA* index, char* data) {
+writeIntoBuffer(void* buffer, IDATA buffer_length, IDATA* index, const char* data) {
 	IDATA len;
 	IDATA next_char = *index;
 	char* cbuffer = (char*)buffer;
@@ -2408,12 +2408,13 @@ freeDumpSettings(struct J9JavaVM *vm, struct J9RASdumpSettings *settings)
 }
 
 IDATA
-scanDumpType(char **optionStringPtr)
+scanDumpType(const char **optionString)
 {
 	IDATA retVal = J9RAS_DUMP_INVALID_TYPE;
 	IDATA kind = 0;
 
-	char *startString = *optionStringPtr;
+	const char *startString = *optionString;
+	char **optionStringPtr = (char**)optionString;
 
 	for (kind = 0; kind < J9RAS_DUMP_KNOWN_SPECS; kind++) {
 		if ( try_scan(optionStringPtr, rasDumpSpecs[kind].name) ) {
@@ -2425,7 +2426,7 @@ scanDumpType(char **optionStringPtr)
 				retVal = kind;
 			/* Not well-formed, so backtrack */
 			} else {
-				*optionStringPtr = startString;
+				*optionString = startString;
 			}
 
 			break;
@@ -2656,7 +2657,7 @@ unloadDumpAgent(struct J9JavaVM *vm, IDATA kind)
  * Returns: OMR_ERROR_NONE on success, OMR_ERROR_INTERNAL or OMR_ERROR_OUT_OF_NATIVE_MEMORY if there was a problem.
  */
 omr_error_t
-createAndRunOneOffDumpAgent(struct J9JavaVM *vm,J9RASdumpContext * context,IDATA kind,char * optionString)
+createAndRunOneOffDumpAgent(struct J9JavaVM *vm,J9RASdumpContext * context,IDATA kind, const char * optionString)
 {
 	J9RASdumpSettings *settings = ((J9RASdumpQueue *)vm->j9rasDumpFunctions)->settings;
 	J9RASdumpSettings tmpSettings = (settings ? settings[kind] : rasDumpSpecs[kind].settings);

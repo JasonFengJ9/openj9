@@ -236,7 +236,7 @@ runDumpAgent(struct J9JavaVM *vm, J9RASdumpAgent * agent, J9RASdumpContext * con
  * Returns: OMR_ERROR_NONE on success, OMR_ERROR_INTERNAL or OMR_ERROR_OUT_OF_NATIVE_MEMORY if there was a problem.
  */
 omr_error_t
-createAndRunOneOffDumpAgent(struct J9JavaVM *vm,J9RASdumpContext * context,IDATA kind,char * optionString);
+createAndRunOneOffDumpAgent(struct J9JavaVM *vm,J9RASdumpContext * context,IDATA kind, const char * optionString);
 
 
 /**
@@ -257,7 +257,7 @@ runDumpFunction(J9RASdumpAgent *agent, char *label, J9RASdumpContext *context);
 * @return IDATA
 */
 IDATA
-scanDumpType(char **optionStringPtr);
+scanDumpType(const char **optionStringPtr);
 
 
 /**
@@ -401,7 +401,7 @@ printLabelSpec(struct J9JavaVM *vm);
  * @param *caller String describing how the user triggered the dump. E.g. "-Xtrace:trigger"
  */
 omr_error_t
-triggerOneOffDump(struct J9JavaVM *vm, char *optionString, char *caller, char *fileName, size_t fileNameLength);
+triggerOneOffDump(struct J9JavaVM *vm, const char *optionString, const char *caller, char *fileName, size_t fileNameLength);
 
 
 /**
