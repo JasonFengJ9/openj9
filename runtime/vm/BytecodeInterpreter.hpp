@@ -1741,6 +1741,15 @@ done:
 	}
 #endif /* DO_HOOKS */
 
+	VMINLINE VM_BytecodeAction
+	returnExecuteBytecodeOrReportMethodEnter() {
+#if defined(DO_HOOKS)
+		return REPORT_METHOD_ENTER;
+#else
+		return EXECUTE_BYTECODE;
+#endif
+	}
+
 	/* A method has just been entered (stack frame built, no monitor entered or method enter hook called) and the SP is below the stackOverflowMark */
 	VMINLINE VM_BytecodeAction
 	stackOverflow(REGISTER_ARGS_LIST)
@@ -2688,7 +2697,7 @@ done:
 	inlThreadCurrentThread(REGISTER_ARGS_LIST)
 	{
 		returnObjectFromINL(REGISTER_ARGS, _currentThread->threadObject, 0);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 #if JAVA_SPEC_VERSION >= 19
@@ -2704,7 +2713,7 @@ done:
 		 */
 		targetThread->threadObject = thread;
 		returnVoidFromINL(REGISTER_ARGS, 2);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 #endif /* JAVA_SPEC_VERSION >= 19 */
 
@@ -2714,14 +2723,18 @@ done:
 	{
 		VM_AtomicSupport::yieldCPU();
 		returnVoidFromINL(REGISTER_ARGS, 0);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Thread: private static native boolean interruptedImpl(); */
 	VMINLINE VM_BytecodeAction
 	inlThreadInterrupted(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		I_32 result = 0;
 #if defined(WIN32)
 		/* Synchronize on the thread lock around interrupted() on windows */
@@ -2763,7 +2776,7 @@ done:
 	inlObjectGetClass(REGISTER_ARGS_LIST)
 	{
 		returnObjectFromINL(REGISTER_ARGS, J9VM_J9CLASS_TO_HEAPCLASS(J9OBJECT_CLAZZ(_currentThread, *(j9object_t*) _sp)), 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Object: public final native void notify(); */
@@ -2771,7 +2784,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlObjectNotify(REGISTER_ARGS_LIST, IDATA (*notifyFunction)(omrthread_monitor_t))
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t receiver = ((j9object_t*)_sp)[0];
 		omrthread_monitor_t monitorPtr = NULL;
 
@@ -2810,7 +2827,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlClassIsAssignableFrom(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t cls = ((j9object_t*)_sp)[0];
 		if (NULL == cls) {
 			buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -2837,7 +2858,7 @@ done:
 	{
 		J9Class *receiverClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		returnSingleFromINL(REGISTER_ARGS, (J9ROMCLASS_IS_ARRAY(receiverClazz->romClass) ? 1 : 0), 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Class: public native boolean isPrimitive(); */
@@ -2846,7 +2867,7 @@ done:
 	{
 		J9Class *receiverClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		returnSingleFromINL(REGISTER_ARGS, (J9ROMCLASS_IS_PRIMITIVE_TYPE(receiverClazz->romClass) ? 1 : 0), 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 #if defined(J9VM_OPT_VALHALLA_FLATTENABLE_VALUE_TYPES)
@@ -2857,7 +2878,7 @@ done:
 		J9Class *receiverClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		bool isPrimitiveClass = J9_IS_J9CLASS_PRIMITIVE_VALUETYPE(receiverClazz);
 		returnSingleFromINL(REGISTER_ARGS, (isPrimitiveClass ? 1 : 0), 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 #endif /* J9VM_OPT_VALHALLA_FLATTENABLE_VALUE_TYPES */
 
@@ -2869,7 +2890,7 @@ done:
 		J9Class *receiverClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		bool isValue = J9_IS_J9CLASS_VALUETYPE(receiverClazz);
 		returnSingleFromINL(REGISTER_ARGS, (isValue ? 1 : 0), 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Class: public native boolean isIdentity(); */
@@ -2879,7 +2900,7 @@ done:
 		J9Class *receiverClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		bool isIdentity = J9ROMCLASS_HAS_IDENTITY(receiverClazz->romClass);
 		returnSingleFromINL(REGISTER_ARGS, (isIdentity ? 1 : 0), 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.J9VMInternals: positiveOnlyHashcodes() */
@@ -2888,7 +2909,7 @@ done:
 	{
 		bool positiveOnlyHashcodes = J9_ARE_ANY_BITS_SET(_vm->extendedRuntimeFlags, J9_EXTENDED_RUNTIME_POSITIVE_HASHCODE);
 		returnSingleFromINL(REGISTER_ARGS, positiveOnlyHashcodes, 0);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Class: private native int getClassFileVersion0(); */
@@ -2898,7 +2919,7 @@ done:
 		J9Class *receiverClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		U_32 classFileVersion = getClassFileVersion(_currentThread, receiverClazz);
 		returnSingleFromINL(REGISTER_ARGS, classFileVersion, 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 #endif /* J9VM_OPT_VALHALLA_VALUE_TYPES */
 
@@ -2915,7 +2936,7 @@ done:
 			result = (I_32)VM_VMHelpers::inlineCheckCast(objectClazz, receiverClazz);
 		}
 		returnSingleFromINL(REGISTER_ARGS, result, 2);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Class: private native int getModifiersImpl(); */
@@ -2946,7 +2967,7 @@ done:
 			modifiers |= (J9AccAbstract + J9AccFinal);
 		}
 		returnSingleFromINL(REGISTER_ARGS, modifiers, 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Class: public native Class<?> getComponentType(); */
@@ -2959,14 +2980,18 @@ done:
 			componentType = J9VM_J9CLASS_TO_HEAPCLASS(((J9ArrayClass*)receiverClazz)->componentType);
 		}
 		returnObjectFromINL(REGISTER_ARGS, componentType, 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Class: private native Class<?> arrayTypeImpl(); */
 	VMINLINE VM_BytecodeAction
 	inlClassArrayTypeImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		J9Class *componentClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		J9Class *arrayClazz = componentClazz->arrayClass;
 		if (NULL == arrayClazz) {
@@ -2991,7 +3016,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlClassGetSimpleNameImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		J9Class *receiverClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		j9object_t simpleName = NULL;
 		J9ROMClass *romClass = receiverClazz->romClass;
@@ -3022,7 +3051,7 @@ done:
 	{
 		J9Class *receiverClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		returnSingleFromINL(REGISTER_ARGS, (J9ROMCLASS_IS_RECORD(receiverClazz->romClass) ? 1 : 0), 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Class: public native boolean isSealed(); */
@@ -3031,14 +3060,18 @@ done:
 	{
 		J9Class *receiverClazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, *(j9object_t*)_sp);
 		returnSingleFromINL(REGISTER_ARGS, (J9ROMCLASS_IS_SEALED(receiverClazz->romClass) ? 1 : 0), 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.System: public static native void arraycopy(Object src, int srcPos, Object dest, int destPos, int length); */
 	VMINLINE VM_BytecodeAction
 	inlSystemArraycopy(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t src = *(j9object_t*)(_sp + 4);
 		I_32 srcPos = *(I_32*)(_sp + 3);
 		j9object_t dest = *(j9object_t*)(_sp + 2);
@@ -3092,7 +3125,7 @@ done:
 	{
 		PORT_ACCESS_FROM_JAVAVM(_vm);
 		returnDoubleFromINL(REGISTER_ARGS, j9time_current_time_millis(), 0);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.System: public static native long nanoTime(); */
@@ -3101,14 +3134,18 @@ done:
 	{
 		PORT_ACCESS_FROM_JAVAVM(_vm);
 		returnDoubleFromINL(REGISTER_ARGS, j9time_nano_time(), 0);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.J9VMInternals: static native Class getSuperclass(Class clazz); */
 	VMINLINE VM_BytecodeAction
 	inlInternalsGetSuperclass(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t clazz = *(j9object_t*)_sp;
 		J9Class *j9clazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, clazz);
 		J9ROMClass *romClass = j9clazz->romClass;
@@ -3128,14 +3165,18 @@ done:
 		/* Caller has null-checked obj already */
 		_pc += 3;
 		*(I_32*)_sp = VM_ObjectHash::inlineObjectHashCode(_vm, obj);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.String: public native String intern(); */
 	VMINLINE VM_BytecodeAction
 	inlStringIntern(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t stringObject = *(j9object_t*)_sp;
 		buildInternalNativeStackFrame(REGISTER_ARGS);
 		updateVMStruct(REGISTER_ARGS);
@@ -3154,7 +3195,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlThrowableFillInStackTrace(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		/* Don't fill in stack traces if -XX:-StackTraceInThrowable is in effect */
 		if (0 == (_vm->runtimeFlags & J9_RUNTIME_OMIT_STACK_TRACES)) {
 			j9object_t receiver = *(j9object_t*)_sp;
@@ -3286,7 +3331,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlInternalsNewInstanceImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t clazz = *(j9object_t*)_sp;
 		j9object_t instance = NULL;
 		buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -3383,7 +3432,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlInternalsPrimitiveClone(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t original = *(j9object_t*)_sp;
 		j9object_t copy = NULL;
 		buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -3444,13 +3497,17 @@ done:
 	{
 		j9object_t referent = _vm->memoryManagerFunctions->j9gc_objaccess_referenceGet(_currentThread, *(j9object_t*)_sp);
 		returnObjectFromINL(REGISTER_ARGS, referent, 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	VMINLINE VM_BytecodeAction
 	unsafePutEpilogue(REGISTER_ARGS_LIST, UDATA argCount)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 
 		if (J9_ARE_NO_BITS_SET(_currentThread->privateFlags2, J9_PRIVATE_FLAGS2_UNSAFE_HANDLE_SIGBUS)) {
 			prepareForExceptionThrow(_currentThread);
@@ -3468,7 +3525,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	unsafeGetEpilogue(REGISTER_ARGS_LIST, I_64 value, UDATA argCount, bool returnDouble)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 
 		if (J9_ARE_NO_BITS_SET(_currentThread->privateFlags2, J9_PRIVATE_FLAGS2_UNSAFE_HANDLE_SIGBUS)) {
 			prepareForExceptionThrow(_currentThread);
@@ -3491,7 +3552,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlUnsafeAllocateInstance(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t classObject = *(j9object_t*)_sp;
 		J9Class *clazz = NULL;
 		j9object_t instance = NULL;
@@ -3982,7 +4047,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlUnsafeGetObject(REGISTER_ARGS_LIST, bool isVolatile)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		UDATA offset = (UDATA)*(I_64*)_sp;
 		j9object_t obj = *(j9object_t*)(_sp + 2);
 		j9object_t value = VM_UnsafeAPI::getObject(_currentThread, &_objectAccessBarrier, obj, offset, isVolatile);
@@ -3996,7 +4065,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlUnsafePutObject(REGISTER_ARGS_LIST, bool isVolatile)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t *value = (j9object_t*)_sp;
 		UDATA offset = (UDATA)*(I_64*)(_sp + 1);
 		j9object_t obj = *(j9object_t*)(_sp + 3);
@@ -4042,7 +4115,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlUnsafeArrayBaseOffset(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t classObject = *(j9object_t*)_sp;
 		if (NULL == classObject) {
 			buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -4067,7 +4144,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlUnsafeArrayIndexScale(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t classObject = *(j9object_t*)_sp;
 		if (NULL == classObject) {
 			buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -4093,7 +4174,7 @@ done:
 	inlUnsafeAddressSize(REGISTER_ARGS_LIST)
 	{
 		returnSingleFromINL(REGISTER_ARGS, VM_UnsafeAPI::addressSize(), 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* sun.misc.Unsafe: public native void loadFence(); */
@@ -4102,7 +4183,7 @@ done:
 	{
 		VM_UnsafeAPI::loadFence();
 		returnVoidFromINL(REGISTER_ARGS, 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* sun.misc.Unsafe: public native void storeFence(); */
@@ -4111,14 +4192,18 @@ done:
 	{
 		VM_UnsafeAPI::storeFence();
 		returnVoidFromINL(REGISTER_ARGS, 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* sun.misc.Unsafe: public final native boolean compareAndSwapObject(java.lang.Object obj, long offset, java.lang.Object compareValue, java.lang.Object swapValue); */
 	VMINLINE VM_BytecodeAction
 	inlUnsafeCompareAndSwapObject(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t *swapValue = (j9object_t*)_sp;
 		j9object_t *compareValue = (j9object_t*)(_sp + 1);
 		UDATA offset = (UDATA)*(I_64*)(_sp + 2);
@@ -4137,7 +4222,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlUnsafeCompareAndSwapLong(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		U_64 swapValue = *(U_64*)_sp;
 		U_64 compareValue = *(U_64*)(_sp + 2);
 		UDATA offset = (UDATA)*(I_64*)(_sp + 4);
@@ -4156,7 +4245,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlUnsafeCompareAndSwapInt(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		U_32 swapValue = *(U_32*)_sp;
 		U_32 compareValue = *(U_32*)(_sp + 1);
 		UDATA offset = (UDATA)*(I_64*)(_sp + 2);
@@ -4189,7 +4282,7 @@ done:
 		}
 
 		returnObjectFromINL(REGISTER_ARGS, result, 2);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* jdk.internal.misc.Unsafe: public native <V> long valueHeaderSize(Class<V> clz); */
@@ -4208,14 +4301,18 @@ done:
 		}
 
 		returnDoubleFromINL(REGISTER_ARGS, result, 2);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	VMINLINE VM_BytecodeAction
 	inlUnsafeGetObjectSize(REGISTER_ARGS_LIST)
 	{
 		j9object_t receiver = *(j9object_t*)_sp;
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 
 		if (NULL == receiver) {
 			rc = THROW_NPE;
@@ -4245,7 +4342,11 @@ done:
 		j9object_t obj = *(j9object_t*)(_sp + 3);
 
 		j9object_t result = NULL;
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 
 		/* TODO (#14073): update this function to have the same behavior as OpenJDK when obj is null, clz is null, or when clz is not a VT class (currently OpenJDK segfaults in all of these scenarios) */
 		if (NULL != obj && NULL != clz) {
@@ -4293,7 +4394,11 @@ done:
 		I_64 offset = *(I_64*)(_sp + 2);
 		j9object_t obj = *(j9object_t*)(_sp + 4);
 
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 
 		/* TODO (#14073): update this function to have the same behavior as OpenJDK when obj is null, clz is null, or when clz is not a VT class (currently OpenJDK segfaults in all of these scenarios) */
 		if ((NULL != obj) && (NULL != clz) && (NULL != value)) {
@@ -4333,14 +4438,18 @@ done:
 
 		restoreInternalNativeStackFrame(REGISTER_ARGS);
 		returnSingleFromINL(REGISTER_ARGS, result, 2);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	VMINLINE VM_BytecodeAction
 	inlUnsafeIsFlattened(REGISTER_ARGS_LIST)
 	{
 		j9object_t field = *(j9object_t*)_sp;
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 
 		updateVMStruct(REGISTER_ARGS);
 		buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -4392,7 +4501,7 @@ done:
 		}
 
 		returnSingleFromINL(REGISTER_ARGS, isFlattened, 4);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 #endif /* defined(J9VM_OPT_VALHALLA_FLATTENABLE_VALUE_TYPES) */
 
@@ -4400,7 +4509,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlInternalsPrepareClassImpl(REGISTER_ARGS_LIST)
 	{
-		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#if defined(DO_HOOKS)
+	VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
+	VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t clazz = *(j9object_t*)_sp;
 		buildInternalNativeStackFrame(REGISTER_ARGS);
 		updateVMStruct(REGISTER_ARGS);
@@ -4420,7 +4533,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlInternalsGetInterfaces(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t clazz = *(j9object_t*)_sp;
 		buildInternalNativeStackFrame(REGISTER_ARGS);
 		updateVMStruct(REGISTER_ARGS);
@@ -4440,7 +4557,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlArrayNewArrayImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t array = NULL;
 		I_32 dimension = *(I_32*)_sp;
 		j9object_t clazz = *(j9object_t*)(_sp + 1);
@@ -4489,7 +4610,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlClassLoaderFindLoadedClassImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t className = *(j9object_t*)_sp;
 		j9object_t classloaderObject = *(j9object_t*)(_sp + 1);
 		J9Class *j9Class = NULL;
@@ -4520,7 +4645,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlVMGetStackClassLoader(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		I_32 depth = *(I_32*)_sp;
 		J9ClassLoader *loader = NULL;
 
@@ -4563,7 +4692,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlVMFindClassOrNull(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t classloaderObject = *(j9object_t*)_sp;
 		j9object_t className = *(j9object_t*)(_sp + 1);
 		J9Class *j9Class = NULL;
@@ -4611,7 +4744,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlInitializeAnonClassLoader(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t anonClassLoaderObject = *(j9object_t*)(_sp);
 		buildInternalNativeStackFrame(REGISTER_ARGS);
 
@@ -4654,7 +4791,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlVMInitializeClassLoader(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		I_32 parallelCapable = *(I_32*)_sp;
 		I_32 loaderType = *(I_32*)(_sp + 1);
 		j9object_t classLoaderObject = *(j9object_t*)(_sp + 2);
@@ -4712,7 +4853,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlVMGetClassPathEntryType(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		I_32 cpIndex = *(I_32*)_sp;
 		j9object_t classLoaderObject = *(j9object_t*)(_sp + 1);
 		I_32 type = CPE_TYPE_UNUSABLE;
@@ -4748,14 +4893,18 @@ done:
 			}
 		}
 		returnSingleFromINL(REGISTER_ARGS, isBoot, 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* java.lang.Class: private static native Class forNameImpl(String className, boolean initializeBoolean, ClassLoader classLoader) throws ClassNotFoundException; */
 	VMINLINE VM_BytecodeAction
 	inlClassForNameImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t classLoaderObject = *(j9object_t*)_sp;
 		I_32 initializeBoolean = *(I_32*)(_sp + 1);
 		j9object_t classNameObject = *(j9object_t*)(_sp + 2);
@@ -4823,7 +4972,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlVMGetCPIndexImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t targetClass = *(j9object_t*)_sp;
 		J9Class *j9clazz = J9VM_J9CLASS_FROM_HEAPCLASS(_currentThread, targetClass);
 
@@ -4903,14 +5056,18 @@ done:
 		recordJNIReturn(REGISTER_ARGS, bp);
 		restoreSpecialStackFrameLeavingArgs(REGISTER_ARGS, bp);
 		returnSingleFromINL(REGISTER_ARGS, status, 5);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* com.ibm.oti.vm.VM: static final native Class getStackClass(int depth); */
 	VMINLINE VM_BytecodeAction
 	inlVMGetStackClass(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		I_32 depth = *(I_32*)_sp;
 
 		buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -4949,7 +5106,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlThreadSleep(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		I_32 nanos = *(I_32*)_sp;
 		I_64 millis = *(I_64*)(_sp + 1);
 		buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -4973,7 +5134,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlObjectWaitImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		I_32 nanos = *(I_32*)_sp;
 		I_64 millis = *(I_64*)(_sp + 1);
 		j9object_t object = *(j9object_t*)(_sp + 3);
@@ -4998,7 +5163,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlClassLoaderLoadLibraryWithPath(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t libraryPath = *(j9object_t*)_sp;
 		j9object_t loader = *(j9object_t*)(_sp + 1);
 		j9object_t *libNamePtr = (j9object_t*)(_sp + 2);
@@ -5093,7 +5262,7 @@ done:
 		j9object_t receiverObject = *(j9object_t*)_sp;
 		I_32 result = VM_VMHelpers::threadIsInterruptedImpl(_currentThread, receiverObject) ? 1 : 0;
 		returnSingleFromINL(REGISTER_ARGS, result, 1);
-		return EXECUTE_BYTECODE;
+		return returnExecuteBytecodeOrReportMethodEnter();
 	}
 
 	/* sun.reflect.Reflection (JDK8)
@@ -5102,7 +5271,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlReflectionGetClassAccessFlags(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t classObject = *(j9object_t*)_sp;
 		if (NULL == classObject) {
 			buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -5133,7 +5306,11 @@ done:
 	VMINLINE VM_BytecodeAction
 	inlInternalDowncallHandlerInvokeNative(REGISTER_ARGS_LIST)
 	{
-		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#if defined(DO_HOOKS)
+	VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
+	VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		UDATA *bp = NULL;
 #if !defined(J9VM_ENV_LITTLE_ENDIAN)
 		/* Move forward by 4 bytes to the starting address of the int numbers on the platforms
@@ -5380,8 +5557,11 @@ ffi_OOM:
 	VMINLINE VM_BytecodeAction
 	enterContinuationImpl(REGISTER_ARGS_LIST)
 	{
-		VM_BytecodeAction rc = EXECUTE_BYTECODE;
-
+#if defined(DO_HOOKS)
+	VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
+	VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		j9object_t continuationObject = *(j9object_t*)_sp;
 
 		buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -5406,7 +5586,11 @@ ffi_OOM:
 	VMINLINE VM_BytecodeAction
 	yieldContinuationImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		BOOLEAN isFinished = (0 == *(I_32*)_sp) ? FALSE : TRUE;
 
 		buildInternalNativeStackFrame(REGISTER_ARGS);
@@ -5430,7 +5614,11 @@ ffi_OOM:
 	VMINLINE VM_BytecodeAction
 	isPinnedContinuationImpl(REGISTER_ARGS_LIST)
 	{
+#if defined(DO_HOOKS)
+		VM_BytecodeAction rc = REPORT_METHOD_ENTER;
+#else
 		VM_BytecodeAction rc = EXECUTE_BYTECODE;
+#endif
 		jint result = 0;
 		buildInternalNativeStackFrame(REGISTER_ARGS);
 		updateVMStruct(REGISTER_ARGS);
