@@ -33,7 +33,7 @@ public class TimeUtilities {
 	public final static long TIME_NANOSECONDS_PER_MILLIS = 1000000;
 
 	public static void showThreadCurrentTime(String msgHeader) {
-		System.out.println(msgHeader + ", current thread name: " + Thread.currentThread().getName() + ", " + new Date()
+		System.err.println(msgHeader + ", current thread name: " + Thread.currentThread().getName() + ", " + new Date()
 				+ ", System.currentTimeMillis() " + System.currentTimeMillis() + ", System.nanoTime() "
 				+ System.nanoTime());
 	}
@@ -57,25 +57,25 @@ public class TimeUtilities {
 		final long elapsedNanoTimeInMillis = elapsedNanoTime / TIME_NANOSECONDS_PER_MILLIS
 				+ ((elapsedNanoTime % TIME_NANOSECONDS_PER_MILLIS == 0) ? 0 : 1);
 
-		System.out.println(testName + ": startMillisTime (" + startMillisTime + "ms) startNanoTime (" + startNanoTime
+		System.err.println(testName + ": startMillisTime (" + startMillisTime + "ms) startNanoTime (" + startNanoTime
 				+ "ns)" + " currentMillisTime (" + currentMillisTime + "ms) currentNanoTime (" + currentNanoTime
 				+ "ns) elapsedMillisTime (" + elapsedMillisTime + "ms) elapsedNanoTime (" + elapsedNanoTime + "ns)");
 		if (elapsedMillisTime < minElapsedMillisTime) {
 			result = false;
-			System.out.println("FAILED: " + testName + " elapsedMillisTime (" + elapsedMillisTime
+			System.err.println("FAILED: " + testName + " elapsedMillisTime (" + elapsedMillisTime
 					+ "ms) should NOT be less than minElapsedMillisTime (" + minElapsedMillisTime + "ms)");
 		} else if (elapsedMillisTime > maxElapsedMillisTime) {
 			result = false;
-			System.out.println("FAILED: " + testName + " elapsedMillisTime (" + elapsedMillisTime
+			System.err.println("FAILED: " + testName + " elapsedMillisTime (" + elapsedMillisTime
 					+ "ms) should NOT be greater than maxElapsedMillisTime (" + maxElapsedMillisTime + "ms)");
 		}
 		if (elapsedNanoTimeInMillis < minElapsedNanoTimeInMillis) {
 			result = false;
-			System.out.println("FAILED: " + testName + " elapsedNanoTimeInMillis (" + elapsedNanoTimeInMillis
+			System.err.println("FAILED: " + testName + " elapsedNanoTimeInMillis (" + elapsedNanoTimeInMillis
 					+ "ms) should NOT be less than minElapsedNanoTimeInMillis (" + minElapsedNanoTimeInMillis + "ms)");
 		} else if (elapsedNanoTimeInMillis > maxElapsedNanoTimeInMillis) {
 			result = false;
-			System.out.println("FAILED: " + testName + " elapsedNanoTimeInMillis (" + elapsedNanoTimeInMillis
+			System.err.println("FAILED: " + testName + " elapsedNanoTimeInMillis (" + elapsedNanoTimeInMillis
 					+ "ms) should NOT be greater than maxElapsedNanoTimeInMillis (" + maxElapsedNanoTimeInMillis
 					+ "ms)");
 		}

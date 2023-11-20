@@ -34,20 +34,23 @@ public class ElapsedTime {
 
 	private static void testElapsedTime() throws InterruptedException {
 		TimeUtilities tu = new TimeUtilities();
-		long millisTimeStart = System.currentTimeMillis();
-		long nanoTimeStart = System.nanoTime();
+		long millisTimeStart;
+		long nanoTimeStart;
 
+		TimeUtilities.showThreadCurrentTime("Before testElapsedTime() sleep 100ms");
 		millisTimeStart = System.currentTimeMillis();
 		nanoTimeStart = System.nanoTime();
 		Thread.currentThread().sleep(100);
 		AssertJUnit.assertTrue(tu.checkElapseTime("testElapsedTime() sleep 100ms", millisTimeStart, nanoTimeStart, 100,
 				800, 100, 800));
 
+		TimeUtilities.showThreadCurrentTime("Before testElapsedTime() timer delayed 100ms");
 		millisTimeStart = System.currentTimeMillis();
 		nanoTimeStart = System.nanoTime();
 		tu.timerSchedule("testElapsedTime() timer delayed 100ms", millisTimeStart, nanoTimeStart, 100, 500, 100, 500,
 				100);
 
+		TimeUtilities.showThreadCurrentTime("Before testElapsedTime() timer delayed 2s");
 		millisTimeStart = System.currentTimeMillis();
 		nanoTimeStart = System.nanoTime();
 		tu.timerSchedule("testElapsedTime() timer delayed 2s", millisTimeStart, nanoTimeStart, 2000, 3000, 2000, 3000,
