@@ -608,6 +608,7 @@ Java_openj9_internal_tools_attach_target_FileLock_lockFileImpl(JNIEnv *env, jcla
 		if (isFileOwnedByMe(env, pathUTF)) {
 			j9file_chmod(pathUTF, mode); /* override UMASK */
 		}
+		printf("Java_openj9_internal_tools_attach_target_FileLock_lockFileImpl pathUTF (%s) mode (%d) fd (%zd) \n", pathUTF, mode, fd);
 		Trc_JCL_attach_lockFileImpl(env, pathUTF, mode, blocking, fd);
 		(*env)->ReleaseStringUTFChars(env, path, pathUTF);
 		if (0 >= fd) {

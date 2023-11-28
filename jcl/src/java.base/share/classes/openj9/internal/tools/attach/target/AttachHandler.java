@@ -290,7 +290,7 @@ public class AttachHandler extends Thread {
 				loggingStatus = LOGGING_ENABLED;
 			} else {
 				loggingStatus = LOGGING_DISABLED;			
-			}			
+			}
 		}
 		
 		
@@ -435,12 +435,16 @@ public class AttachHandler extends Thread {
 		 * Note that the controller lock is not held while waiting to shut down.
 		 */
 		long lockDeadline = System.nanoTime() + shutdownTimeoutMs*1000000/10; /* let the file lock use only a fraction of the timeout budget */
+		System.err.println("lockDeadline = " + lockDeadline + ", shutdownTimeoutMs = " + shutdownTimeoutMs + ", shutdownTimeoutMs*1000000/10" + shutdownTimeoutMs*1000000/10);
 		try {
 			gotLock = CommonDirectory.tryObtainControllerLock("AttachHandler.terminateWaitLoop(" + wakeHandler + "," + retryNumber + ")_1"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 			while (!gotLock && isWaitingForSemaphore()) {
 				Thread.sleep(10);
 				gotLock = CommonDirectory.tryObtainControllerLock("AttachHandler.terminateWaitLoop(" + wakeHandler + "," + retryNumber + ")_2"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				long sysNanoTime = System.nanoTime();
+				System.err.println("sysNanoTime = " + sysNanoTime);
 				if (System.nanoTime() > lockDeadline) {
+					System.err.println("sysNanoTime = " + sysNanoTime + ", lockDeadline = " + lockDeadline);
 					break;
 				}
 			}

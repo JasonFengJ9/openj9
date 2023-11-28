@@ -78,6 +78,7 @@ public final class FileLock {
 		}
 		
 		/* lock will usually be uncontended, so don't start a watchdog unless necessary */
+		System.err.println("FileLock.lockFile() lockFilepath = " + lockFilepath + ", fileMode = " + fileMode);
 		fileDescriptor = lockFileImpl(lockFilepath, fileMode, false);
 		locked = (0 <= fileDescriptor); /* negative values indicate error, non-negative values (including 0) are valid FDs */
 		
