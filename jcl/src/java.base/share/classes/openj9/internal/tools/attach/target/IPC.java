@@ -91,6 +91,8 @@ public class IPC {
 	 */
 	public static final boolean isZOS;
 
+	public static final int retry = Integer.getInteger("com.ibm.tools.attach.retry", 3).intValue(); //$NON-NLS-1$
+
 	/**
 	 * Controls use of the FileLockWatchdogTask.
 	 * Setting -Dcom.ibm.tools.attach.useFileLockWatchdog=[true|false] takes

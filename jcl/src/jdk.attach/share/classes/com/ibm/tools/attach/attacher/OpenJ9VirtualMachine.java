@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.security.AccessController;
@@ -156,23 +157,38 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 		AttachNotSupportedException lastException = null;
 		/*[PR CMVC 182802 ]*/
 		int timeout = 100; /* start small in case there is a rogue process which is eating semaphores, grow big in case of system load. */
+		int retry = 0;
 		while (timeout < MAXIMUM_ATTACH_TIMEOUT) {
 			lastException = null;
+			boolean shortSleep = false;
 			try {
 				tryAttachTarget(timeout);
 			} catch (AttachNotSupportedException e) {
 				IPC.logMessage("attachTarget " + targetId + " timeout after " + timeout+" ms"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 				lastException = e;
-				timeout = (timeout * 3)/2;
+				if ((retry < IPC.retry) && (e.getCause() instanceof SocketException)) {
+					// retry in case of SocketException
+					retry += 1;
+					shortSleep = true;
+					IPC.logMessage("attachTarget " + targetId + " retry = " + retry); //$NON-NLS-1$ //$NON-NLS-2$
+				} else {
+					timeout = (timeout * 3)/2;
+				}
 			}
 			if (null == lastException) {
 				break;
 			}
 			try {
 				// give another attacher a chance to run
-				Thread.sleep(timeout);
+				if (shortSleep) {
+					Thread.sleep(10);
+					IPC.logMessage("shortSleep: attachTarget " + targetId); //$NON-NLS-1$
+				} else {
+					Thread.sleep(timeout);
+				}
 			} catch (InterruptedException e) {
 				// ignore
+				IPC.logMessage("InterruptedException: attachTarget " + targetId); //$NON-NLS-1$
 			}
 		}
 		if (null != lastException) {
