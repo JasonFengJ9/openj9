@@ -592,15 +592,15 @@ Java_openj9_internal_tools_attach_target_IPC_processExistsImpl(JNIEnv *env, jcla
  * @param mode file mode to create the file with
  * @param blocking true if process is to wait for the file to be unlocked
  * @return file descriptor if the file is successfully locked, otherwise negative value
- * @note J9PORT_ERROR_FILE_OPFAILED (-300) indicates file cannot be opened or the path could not be converted, J9PORT_ERROR_FILE_LOCK_BADLOCK (-316) indicates that the file could not be locked.
- */
+ * @note J9PORT_ERROR_FILE_OPFAILED (-300) indicates file cannot be opened or the path could not be converted,
+ *  or an error code that indicates that the file could not be locked. */
 jlong JNICALL
 Java_openj9_internal_tools_attach_target_FileLock_lockFileImpl(JNIEnv *env, jclass clazz, jstring path, jint mode, jboolean blocking)
 {
-    PORT_ACCESS_FROM_VMC( ((J9VMThread *) env) );
+	PORT_ACCESS_FROM_VMC( ((J9VMThread *) env) );
 
-    jlong result = JNI_OK;
-	const char *pathUTF;
+	jlong result = JNI_OK;
+	const char *pathUTF = NULL;
 
 	pathUTF = (*env)->GetStringUTFChars(env, path, NULL); /* j9file_open takes a UTF8 string for the path */
 	if (NULL != pathUTF) {
@@ -622,7 +622,8 @@ Java_openj9_internal_tools_attach_target_FileLock_lockFileImpl(JNIEnv *env, jcla
 			lockStatus = j9file_lock_bytes(fd, J9PORT_FILE_WRITE_LOCK | ((0 == blocking)? J9PORT_FILE_NOWAIT_FOR_LOCK: J9PORT_FILE_WAIT_FOR_LOCK), 0, 1);
 			if (0 != lockStatus) {
 				j9file_close(fd);
-				result = J9PORT_ERROR_FILE_LOCK_BADLOCK;
+				result = j9error_last_error_number();
+				Trc_JCL_attach_lockFileBytes(env, result, j9error_last_error_message());
 			} else {
 				result = fd;
 			}

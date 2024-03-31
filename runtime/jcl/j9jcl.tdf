@@ -707,3 +707,5 @@ TraceEvent=Trc_JCL_MXBean_getUptimeImpl Overhead=1 Level=3 Template="RuntimeMXBe
 
 TraceException=Trc_JCL_memoryManagement_verifyMemoryUsageAfterGC_memoryUsageError Test NoEnv Overhead=1 Level=1 Template="JCL: verifyMemoryUsageAfterGC memoryUsageError: GcName=%s, MemoryPool=%s, initialSize=%lld, preUsedSize=%llu, preCommittedSize==%llu, preMaxSize=%lld, postUsedSize=%llu, postCommittedSize==%llu, postMaxSize=%lld"
 TraceEvent=Trc_JCL_memoryManagement_verifyMemoryUsageAfterGC_memoryUsage Test NoEnv Overhead=1 Level=6 Template="JCL: verifyMemoryUsageAfterGC memoryUsage: GcName=%s, MemoryPool=%s, initialSize=%lld, preUsedSize=%llu, preCommittedSize==%llu, preMaxSize=%lld, postUsedSize=%llu, postCommittedSize==%llu, postMaxSize=%lld"
+
+TraceEvent=Trc_JCL_attach_lockFileBytes Overhead=1 Level=3 Template="j9file_lock_bytes failed error number=%d, message = %s"
