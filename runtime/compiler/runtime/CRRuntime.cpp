@@ -90,7 +90,20 @@ TR::CRRuntime::CRRuntime(J9JITConfig *jitConfig, TR::CompilationInfo *compInfo) 
    _failedComps(),
    _forcedRecomps(),
    _impMethodForCR(),
-   _proactiveCompEnv()
+   _proactiveCompEnv(),
+   _vmMethodTraceEnabled(false),
+   _vmExceptionEventsHooked(false),
+   _fsdEnabled(false)
+   {
+#if defined(J9VM_OPT_JITSERVER)
+   _canPerformRemoteCompilationInCRIUMode = false;
+   _remoteCompilationRequestedAtBootstrap = false;
+   _remoteCompilationExplicitlyDisabledAtBootstrap = false;
+#endif
+   }
+
+void
+TR::CRRuntime::cacheEventsStatus()
    {
    // TR::CompilationInfo is initialized in the JIT_INITIALIZED bootstrap
    // stage, whereas J9_EXTENDED_RUNTIME_METHOD_TRACE_ENABLED is set in the
@@ -108,11 +121,7 @@ TR::CRRuntime::CRRuntime(J9JITConfig *jitConfig, TR::CompilationInfo *compInfo) 
         || J9_EVENT_IS_RESERVED(jitConfig->javaVM->hookInterface, J9HOOK_VM_EXCEPTION_THROW);
    _vmExceptionEventsHooked = exceptionCatchEventHooked || exceptionThrowEventHooked;
 
-#if defined(J9VM_OPT_JITSERVER)
-   _canPerformRemoteCompilationInCRIUMode = false;
-   _remoteCompilationRequestedAtBootstrap = false;
-   _remoteCompilationExplicitlyDisabledAtBootstrap = false;
-#endif
+   _fsdEnabled = J9::Options::_fsdInitStatus == J9::Options::FSDInit_Initialized;
    }
 
 void

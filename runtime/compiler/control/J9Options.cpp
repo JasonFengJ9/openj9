@@ -3020,6 +3020,32 @@ J9::Options::fePostProcessAOT(void * base)
 bool
 J9::Options::isFSDNeeded(J9JavaVM *javaVM, J9HookInterface **vmHooks)
    {
+#if defined(J9VM_OPT_CRIU_SUPPORT)
+   J9VMThread * vmThread = javaVM->internalVMFunctions->currentVMThread(javaVM);
+   if (javaVM->internalVMFunctions->isCheckpointAllowed(vmThread))
+      {
+      if (javaVM->internalVMFunctions->isDebugOnRestoreEnabled(vmThread))
+         {
+//    	  printf("J9::Options::isFSDNeeded return false \n");
+         return false;
+         }
+      } else {
+/*
+          printf("J9::Options::isFSDNeeded Checkpoint is not allowed \n");
+          
+          printf("J9::Options::isFSDNeeded() 01 %ld \n", (javaVM->requiredDebugAttributes & J9VM_DEBUG_ATTRIBUTE_CAN_ACCESS_LOCALS));
+          printf("J9::Options::isFSDNeeded() 03 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(javaVM->hookInterface, J9HOOK_VM_POP_FRAMES_INTERRUPT));
+          printf("J9::Options::isFSDNeeded() 04 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(javaVM->hookInterface, J9HOOK_VM_BREAKPOINT));
+          printf("J9::Options::isFSDNeeded() 05 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(javaVM->hookInterface, J9HOOK_VM_FRAME_POPPED));
+          printf("J9::Options::isFSDNeeded() 06 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(javaVM->hookInterface, J9HOOK_VM_FRAME_POP));
+          printf("J9::Options::isFSDNeeded() 07 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(javaVM->hookInterface, J9HOOK_VM_GET_FIELD));
+          printf("J9::Options::isFSDNeeded() 08 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(javaVM->hookInterface, J9HOOK_VM_PUT_FIELD));
+          printf("J9::Options::isFSDNeeded() 09 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(javaVM->hookInterface, J9HOOK_VM_GET_STATIC_FIELD));
+          printf("J9::Options::isFSDNeeded() 10 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(javaVM->hookInterface, J9HOOK_VM_PUT_STATIC_FIELD));
+          printf("J9::Options::isFSDNeeded() 11 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(javaVM->hookInterface, J9HOOK_VM_SINGLE_STEP));
+*/
+      }
+#endif
    return
 #if defined(J9VM_JIT_FULL_SPEED_DEBUG)
       (javaVM->requiredDebugAttributes & J9VM_DEBUG_ATTRIBUTE_CAN_ACCESS_LOCALS) ||
@@ -3042,6 +3068,7 @@ J9::Options::initializeFSDIfNeeded(J9JavaVM *javaVM, J9HookInterface **vmHooks, 
    {
    if (self()->isFSDNeeded(javaVM, vmHooks))
       {
+//	   printf("initializeFSDIfNeeded isFSDNeeded() returned true \n");
       static bool TR_DisableFullSpeedDebug = (feGetEnv("TR_DisableFullSpeedDebug") != NULL);
       static bool TR_DisableFullSpeedDebugAOT = (feGetEnv("TR_DisableFullSpeedDebugAOT") != NULL);
 #if defined(J9VM_JIT_FULL_SPEED_DEBUG)
@@ -3066,6 +3093,8 @@ J9::Options::initializeFSDIfNeeded(J9JavaVM *javaVM, J9HookInterface **vmHooks, 
 #else
       _fsdInitStatus = FSDInitStatus::FSDInit_Error;
 #endif
+      } else {
+//    	  printf("initializeFSDIfNeeded isFSDNeeded() returned false \n");
       }
 
    return _fsdInitStatus;

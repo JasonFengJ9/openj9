@@ -155,6 +155,15 @@ static BOOLEAN shouldPostEvent(J9VMThread *currentThread, J9Method *method);
 #if defined(J9VM_OPT_CRIU_SUPPORT)
 static void jvmtiHookVMCheckpoint(J9HookInterface **hook, UDATA eventNum, void *eventData, void *userData);
 static void jvmtiHookVMRestore(J9HookInterface **hook, UDATA eventNum, void *eventData, void *userData);
+static void jvmtiHookVMRestoreCRIUInit(J9HookInterface **hook, UDATA eventNum, void *eventData, void *userData);
+
+static void
+hookDisableHelper(J9HookInterface **vmHook, UDATA eventNum, J9HookFunction function)
+{
+	(*vmHook)->J9HookUnregister(vmHook, eventNum, function, NULL);
+	(*vmHook)->J9HookUnreserve(vmHook, eventNum);
+	(*vmHook)->J9HookDisable(vmHook, eventNum);
+}
 #endif /* defined(J9VM_OPT_CRIU_SUPPORT) */
 
 static void
@@ -537,6 +546,21 @@ jvmtiHookVMCheckpoint(J9HookInterface **hook, UDATA eventNum, void *eventData, v
 	}
 
 	TRACE_JVMTI_EVENT_RETURN(jvmtiHookVMCheckpoint);
+}
+
+static void
+jvmtiHookVMRestoreCRIUInit(J9HookInterface **hook, UDATA eventNum, void *eventData, void *userData)
+{
+	J9RestoreEvent *data = eventData;
+	J9JVMTIEnv *j9env = userData;
+
+	Trc_JVMTI_jvmtiHookVMRestore_Entry();
+
+	data->currentThread->javaVM->internalVMFunctions->internalExitVMToJNI(data->currentThread);
+	criuRestoreInitializeLib(data->currentThread->javaVM, j9env);
+	data->currentThread->javaVM->internalVMFunctions->internalEnterVMFromJNI(data->currentThread);
+
+	TRACE_JVMTI_EVENT_RETURN(jvmtiHookVMRestore);
 }
 
 static void
@@ -1914,6 +1938,14 @@ hookGlobalEvents(J9JVMTIData * jvmtiData)
 		return 1;
 	}
 
+#if defined(J9VM_OPT_CRIU_SUPPORT)
+	if (vm->internalVMFunctions->isDebugOnRestoreEnabled(vm->mainThread)) {
+		if ((*vmHook)->J9HookRegisterWithCallSite(vmHook, J9HOOK_TAG_AGENT_ID | J9HOOK_VM_PREPARING_FOR_RESTORE, jvmtiHookVMRestoreCRIUInit, OMR_GET_CALLSITE(), jvmtiData, J9HOOK_AGENTID_FIRST)) {
+			return 1;
+		}
+	}
+#endif /* defined(J9VM_OPT_CRIU_SUPPORT) */
+
 	if ((*vmHook)->J9HookRegisterWithCallSite(vmHook, J9HOOK_TAG_AGENT_ID | J9HOOK_VM_SHUTTING_DOWN, jvmtiHookVMShutdownLast, OMR_GET_CALLSITE(), jvmtiData, J9HOOK_AGENTID_LAST)) {
 		return 1;
 	}
@@ -1952,6 +1984,116 @@ unhookGlobalEvents(J9JVMTIData * jvmtiData)
 	(*vmHook)->J9HookUnregister(vmHook, J9HOOK_VM_SHUTTING_DOWN, jvmtiHookVMShutdownLast, NULL);
 }
 
+void
+criuDisableHooks(J9JVMTIData *jvmtiData, J9JVMTIEnv *j9env)
+{
+	J9JavaVM *vm = jvmtiData->vm;
+	J9HookInterface **vmHook = vm->internalVMFunctions->getVMHookInterface(vm);
+
+	Assert_JVMTI_true(J9_ARE_NO_BITS_SET(vm->checkpointState.flags, J9VM_CRIU_IS_JDWP_ENABLED));
+
+	/* can_access_local_variables, can_get_source_file_name, can_get_line_numbers, can_get_source_debug_extension
+	 * can_maintain_original_method_order, can_generate_single_step_events
+	 */
+	hookDisableHelper(vmHook, J9HOOK_VM_REQUIRED_DEBUG_ATTRIBUTES, jvmtiHookRequiredDebugAttributes);
+	vm->requiredDebugAttributes &= ~J9VM_DEBUG_ATTRIBUTE_CAN_ACCESS_LOCALS;
+	if (NULL != vm->jitConfig) {
+		vm->requiredDebugAttributes &= ~J9VM_DEBUG_ATTRIBUTE_LINE_NUMBER_TABLE;
+		vm->requiredDebugAttributes &= ~J9VM_DEBUG_ATTRIBUTE_LOCAL_VARIABLE_TABLE;
+		vm->requiredDebugAttributes &= ~J9VM_DEBUG_ATTRIBUTE_MAINTAIN_ORIGINAL_METHOD_ORDER;
+		vm->requiredDebugAttributes &= ~J9VM_DEBUG_ATTRIBUTE_SOURCE_DEBUG_EXTENSION;
+		vm->requiredDebugAttributes &= ~J9VM_DEBUG_ATTRIBUTE_SOURCE_FILE;
+	}
+
+	if (NULL != vm->jitConfig) {
+		J9VMHookInterface vmhookInterface = vm->hookInterface;
+		
+		/* can_tag_objects */
+		hookDisableHelper(vmHook, J9HOOK_MM_OMR_GLOBAL_GC_END, jvmtiHookGCEnd);
+		hookDisableHelper(vmHook, J9HOOK_MM_OMR_LOCAL_GC_END, jvmtiHookGCEnd);
+
+		/* can_generate_single_step_events */
+		hookDisableHelper(vmHook, J9HOOK_VM_SINGLE_STEP, jvmtiHookSingleStep);
+
+		/* can_generate_exception_events */
+		hookDisableHelper(vmHook, J9HOOK_VM_EXCEPTION_THROW, jvmtiHookExceptionThrow);
+		hookDisableHelper(vmHook, J9HOOK_VM_EXCEPTION_CATCH, jvmtiHookExceptionCatch);
+
+		/* can_generate_frame_pop_events */
+		hookDisableHelper(vmHook, J9HOOK_VM_FRAME_POP, jvmtiHookFramePop);
+
+		/* can_generate_breakpoint_events */
+		hookDisableHelper(vmHook, J9HOOK_VM_BREAKPOINT, jvmtiHookBreakpoint);
+
+		/* can_suspend */
+
+		/* can_generate_method_entry_events */
+		hookDisableHelper(vmHook, J9HOOK_VM_METHOD_ENTER, jvmtiHookMethodEnter);
+		hookDisableHelper(vmHook, J9HOOK_VM_NATIVE_METHOD_ENTER, jvmtiHookMethodEnter);
+
+		/* can_generate_method_exit_events */
+		hookDisableHelper(vmHook, J9HOOK_VM_METHOD_RETURN, jvmtiHookMethodExit);
+		hookDisableHelper(vmHook, J9HOOK_VM_NATIVE_METHOD_RETURN, jvmtiHookMethodExit);
+
+		/* can_generate_monitor_events */
+		hookDisableHelper(vmHook, J9HOOK_VM_MONITOR_CONTENDED_ENTER, jvmtiHookMonitorContendedEnter);
+		hookDisableHelper(vmHook, J9HOOK_VM_MONITOR_CONTENDED_ENTERED, jvmtiHookMonitorContendedEntered);
+		hookDisableHelper(vmHook, J9HOOK_VM_MONITOR_WAIT, jvmtiHookMonitorWait);
+		hookDisableHelper(vmHook, J9HOOK_VM_MONITOR_WAITED, jvmtiHookMonitorWaited);
+
+		/* can_generate_garbage_collection_events */
+		hookDisableHelper(vmHook, J9HOOK_MM_OMR_GLOBAL_GC_START, jvmtiHookGCStart);
+		hookDisableHelper(vmHook, J9HOOK_MM_OMR_LOCAL_GC_START, jvmtiHookGCStart);
+		hookDisableHelper(vmHook, J9HOOK_MM_OMR_GLOBAL_GC_END, jvmtiHookGCEnd);
+		hookDisableHelper(vmHook, J9HOOK_MM_OMR_LOCAL_GC_END, jvmtiHookGCEnd);
+
+#if JAVA_SPEC_VERSION >= 21
+		/* can_support_virtual_threads */
+		hookDisableHelper(vmHook, J9HOOK_VM_VIRTUAL_THREAD_STARTED, jvmtiHookVirtualThreadStarted);
+		hookDisableHelper(vmHook, J9HOOK_VM_VIRTUAL_THREAD_END, jvmtiHookVirtualThreadEnd);
+#endif /* JAVA_SPEC_VERSION >= 21 */
+
+		/* can_generate_field_modification_events */
+		if (J9_EVENT_IS_HOOKED_OR_RESERVED(vmhookInterface, J9HOOK_VM_PUT_FIELD)) {
+			hookDisableHelper(vmHook, J9HOOK_VM_PUT_FIELD, jvmtiHookFieldModification);
+		}
+		if (J9_EVENT_IS_HOOKED_OR_RESERVED(vmhookInterface, J9HOOK_VM_PUT_STATIC_FIELD)) {
+			hookDisableHelper(vmHook, J9HOOK_VM_PUT_STATIC_FIELD, jvmtiHookFieldModification);
+		}
+
+		/* can_generate_field_access_events */
+		if (J9_EVENT_IS_HOOKED_OR_RESERVED(vmhookInterface, J9HOOK_VM_GET_FIELD)) {
+			hookDisableHelper(vmHook, J9HOOK_VM_GET_FIELD, jvmtiHookFieldAccess);
+		}
+		if (J9_EVENT_IS_HOOKED_OR_RESERVED(vmhookInterface, J9HOOK_VM_GET_STATIC_FIELD)) {
+			hookDisableHelper(vmHook, J9HOOK_VM_GET_STATIC_FIELD, jvmtiHookFieldAccess);
+		}
+
+		/* can_get_bytecodes */
+		/* can_get_synthetic_attribute */
+		/* can_get_owned_monitor_info */
+		/* can_get_current_contended_monitor */
+		/* can_get_monitor_info */
+
+		/* can_pop_frame & can_force_early_return */
+		if (J9_EVENT_IS_HOOKED_OR_RESERVED(vmhookInterface, J9HOOK_VM_POP_FRAMES_INTERRUPT)) {
+//			printf("J9HOOK_VM_POP_FRAMES_INTERRUPT hooked/reserved \n");
+			/* can_pop_frame */
+			hookDisableHelper(vmHook, J9HOOK_VM_POP_FRAMES_INTERRUPT, jvmtiHookPopFramesInterrupt);
+//			printf("J9HOOK_VM_POP_FRAMES_INTERRUPT 033 %d \n", J9_EVENT_IS_HOOKED_OR_RESERVED(vmhookInterface, J9HOOK_VM_POP_FRAMES_INTERRUPT));
+			/* can_force_early_return */
+		}
+
+		/* can_redefine_classes */
+		/* can_signal_thread */
+		/* can_redefine_any_class */
+		/* can_get_owned_monitor_stack_depth_info */
+		/* can_get_constant_pool */
+		
+		
+		/* isFSDNeeded() */
+	}
+}
 
 static void
 jvmtiHookMonitorContendedEnter(J9HookInterface** hook, UDATA eventNum, void* eventData, void* userData)

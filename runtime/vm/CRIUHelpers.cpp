@@ -182,7 +182,9 @@ isJVMInPortableRestoreMode(J9VMThread *currentThread)
 BOOLEAN
 isDebugOnRestoreEnabled(J9VMThread *currentThread)
 {
-	return J9_ARE_ALL_BITS_SET(currentThread->javaVM->checkpointState.flags, J9VM_CRIU_SUPPORT_DEBUG_ON_RESTORE) && isCRaCorCRIUSupportEnabled(currentThread);
+	return J9_ARE_NO_BITS_SET(currentThread->javaVM->checkpointState.flags, J9VM_CRIU_IS_JDWP_ENABLED)
+			&& J9_ARE_ALL_BITS_SET(currentThread->javaVM->checkpointState.flags, J9VM_CRIU_SUPPORT_DEBUG_ON_RESTORE)
+			&& isCRaCorCRIUSupportEnabled(currentThread);
 }
 
 void
@@ -1899,6 +1901,7 @@ criuCheckpointJVMImpl(JNIEnv *env,
 			Trc_VM_criu_process_restore_start_after_dump(currentThread, criuRestorePid, vm->checkpointState.processRestoreStartTimeInNanoseconds);
 
 			/* Load restore arguments from restore file or env vars. */
+//			printf("before loadRestoreArguments() \n");
 			switch (loadRestoreArguments(currentThread, optionsFileChars, envFileChars)) {
 			case RESTORE_ARGS_RETURN_OPTIONS_FILE_FAILED:
 				currentExceptionClass = vm->checkpointState.criuJVMRestoreExceptionClass;
@@ -1912,6 +1915,7 @@ criuCheckpointJVMImpl(JNIEnv *env,
 			case RESTORE_ARGS_RETURN_OK:
 				break;
 			}
+//			printf("after loadRestoreArguments() \n");
 
 			if (!checkTransitionToDebugInterpreter(currentThread)) {
 				currentExceptionClass = vm->checkpointState.criuJVMRestoreExceptionClass;

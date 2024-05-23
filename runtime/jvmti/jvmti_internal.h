@@ -1500,6 +1500,10 @@ unhookEvent(J9JVMTIEnv * j9env, jint event);
 void
 unhookGlobalEvents(J9JVMTIData * jvmtiData);
 
+#if defined(J9VM_OPT_CRIU_SUPPORT)
+void
+criuDisableHooks(J9JVMTIData *jvmtiData, J9JVMTIEnv *j9env);
+#endif /* defined(J9VM_OPT_CRIU_SUPPORT) */
 
 /* ---------------- jvmtiJNIFunctionInterception.c ---------------- */
 
@@ -2196,6 +2200,16 @@ IDATA J9VMDllMain(J9JavaVM* vm, IDATA stage, void* reserved);
 */
 jint JNICALL JVM_OnLoad(JavaVM *jvm, char* options, void *reserved);
 
+#if defined(J9VM_OPT_CRIU_SUPPORT)
+
+/**
+* Load and initialize libraries from CRIU restore option file.
+*
+* @param vm the pointer to the J9JavaVM struct
+*/
+void
+criuRestoreInitializeLib(J9JavaVM *vm, J9JVMTIEnv *j9env);
+#endif /* defined(J9VM_OPT_CRIU_SUPPORT) */
 
 /* ---------------- jvmtiSystemProperties.c ---------------- */
 

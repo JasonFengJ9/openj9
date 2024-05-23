@@ -734,8 +734,27 @@ J9::OptionsPostRestore::postProcessInternalCompilerOptions()
    TR::Options::FSDInitStatus fsdStatus = TR::Options::resetFSD(vm, _vmThread, doAOT);
    disableAOT = !doAOT;
 
-   if (fsdStatus != TR::Options::FSDInitStatus::FSDInit_NotInitialized)
+//   if (fsdStatus != TR::Options::FSDInitStatus::FSDInit_NotInitialized)
+/*
+   if (_compInfo->getCRRuntime()->isFSDEnabled()) {
+	   printf("_compInfo->getCRRuntime()->isFSDEnabled() return true \n");
+   } else {
+	   printf("_compInfo->getCRRuntime()->isFSDEnabled() return false \n");
+   }
+   if (fsdStatus == TR::Options::FSDInitStatus::FSDInit_NotInitialized) {
+	   printf("fsdStatus == TR::Options::FSDInitStatus::FSDInit_NotInitialized \n");
+   } else if (fsdStatus == TR::Options::FSDInitStatus::FSDInit_Initialized) {
+	   printf("fsdStatus == TR::Options::FSDInitStatus::FSDInit_Initialized \n");
+   } else if (fsdStatus == TR::Options::FSDInitStatus::FSDInit_Error) {
+	   printf("fsdStatus == TR::Options::FSDInitStatus::FSDInit_Error \n");
+   } else {
+	   printf("fsdStatus == TR::Options::FSDInitStatus:: ??? \n");
+   }
+*/
+   if (!_compInfo->getCRRuntime()->isFSDEnabled()
+       && fsdStatus != TR::Options::FSDInitStatus::FSDInit_NotInitialized)
       {
+//      printf("invalidateAll = true and disableAOT = true \n");
       invalidateAll = true;
       disableAOT = true;
       }

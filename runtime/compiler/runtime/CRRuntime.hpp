@@ -69,6 +69,8 @@ class CRRuntime
 
    CRRuntime(J9JITConfig *jitConfig, TR::CompilationInfo *compInfo);
 
+   void cacheEventsStatus();
+
    /* The CR Monitor (Checkpoint/Restore Monitor) must always be acquired with
     * Comp Monitor in hand. If waiting on the CR Monitor, the Comp Monitor
     * should be released. After being notified, the CR Monitor should be
@@ -107,6 +109,9 @@ class CRRuntime
 
    void setVMExceptionEventsHooked(bool trace) { _vmExceptionEventsHooked = trace; }
    bool isVMExceptionEventsHooked()            { return _vmExceptionEventsHooked;  }
+
+   void setFSDEnabled(bool trace) { _fsdEnabled = trace; }
+   bool isFSDEnabled()            { return _fsdEnabled;  }
 
 #if defined(J9VM_OPT_JITSERVER)
    bool canPerformRemoteCompilationInCRIUMode()                   { return _canPerformRemoteCompilationInCRIUMode;       }
@@ -389,6 +394,7 @@ class CRRuntime
 
    bool _vmMethodTraceEnabled;
    bool _vmExceptionEventsHooked;
+   bool _fsdEnabled;
 
 #if defined(J9VM_OPT_JITSERVER)
    bool _canPerformRemoteCompilationInCRIUMode;
