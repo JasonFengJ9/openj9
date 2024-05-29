@@ -4289,9 +4289,6 @@ typedef struct J9DelayedLockingOpertionsRecord {
 #define J9VM_CRAC_IS_CHECKPOINT_ENABLED 0x80
 #define J9VM_CRIU_SUPPORT_DEBUG_ON_RESTORE 0x100
 
-/* matches maximum count defined by JDWP in threadControl.c */
-#define J9VM_CRIU_MAX_DEBUG_THREADS_STORED 10
-
 typedef struct J9CRIUCheckpointState {
 	U_32 flags;
 #if JAVA_SPEC_VERSION >= 20
@@ -4342,9 +4339,6 @@ typedef struct J9CRIUCheckpointState {
 	char *cracCheckpointToDir;
 #endif /* defined(J9VM_OPT_CRAC_SUPPORT) */
 	U_32 requiredGhostFileLimit;
-	/* the array of threads is updated by the JDWP agent */
-	jthread javaDebugThreads[J9VM_CRIU_MAX_DEBUG_THREADS_STORED];
-	UDATA javaDebugThreadCount;
 } J9CRIUCheckpointState;
 #endif /* defined(J9VM_OPT_CRIU_SUPPORT) */
 
@@ -4766,7 +4760,7 @@ typedef struct J9InternalVMFunctions {
 	UDATA  ( *hashClassTableDelete)(struct J9ClassLoader *classLoader, U_8 *className, UDATA classNameLength) ;
 	void  ( *hashClassTableReplace)(struct J9VMThread* vmThread, struct J9ClassLoader *classLoader, struct J9Class *originalClass, struct J9Class *replacementClass) ;
 	struct J9ObjectMonitor *  ( *monitorTableAt)(struct J9VMThread* vmStruct, j9object_t object) ;
-	struct J9VMThread*  ( *allocateVMThread)(struct J9JavaVM *vm, omrthread_t osThread, UDATA privateFlags, void *memorySpace, J9Object *threadObject) ;
+	struct J9VMThread*  ( *allocateVMThread)(struct J9JavaVM * vm, omrthread_t osThread, UDATA privateFlags, void * memorySpace, J9Object * threadObject) ;
 	void  ( *deallocateVMThread)(struct J9VMThread * vmThread, UDATA decrementZombieCount, UDATA sendThreadDestroyEvent) ;
 	struct J9MemorySegment*  ( *allocateMemorySegment)(struct J9JavaVM *javaVM, UDATA size, UDATA type, U_32 memoryCategory) ;
 	IDATA  ( *javaThreadProc)(void *entryarg) ;
