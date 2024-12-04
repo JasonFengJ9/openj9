@@ -1731,19 +1731,86 @@ JVM_GetNanoTimeAdjustment(JNIEnv *env, jclass clazz, jlong offsetSeconds)
 	jlong offsetNanoSeconds = 0;
 	jlong currentTimeNano = 0;
 	jlong result = -1;
+	jlong nanoPerSec = 1000000000;
 
 	/* 2^63/10^9 is the largest number offsetSeconds can be such that multiplying it
 	 * by J9TIME_NANOSECONDS_PER_SECOND (10^9) will not result in an overflow
+	 */
+	printf("JVM_GetNanoTimeAdjustment() offsetSeconds = %lld OFFSET_MAX = %lld OFFSET_MIN = %lld \n", offsetSeconds, OFFSET_MAX, OFFSET_MIN);
+	// JVM_GetNanoTimeAdjustment() offsetSeconds = -2561704645 
+	// 		  						   OFFSET_MAX = 9223372036
+	//								  OFFSET_MIN = -9223372036
+/*
+	JVM_GetNanoTimeAdjustment() offsetSeconds = -2561700791
+	 								OFFSET_MAX = 9223372036
+	 							   OFFSET_MIN = -9223372036 
+	JVM_GetNanoTimeAdjustment() success = 1 
+									offsetSeconds = -2561700791
+								offsetNanoSeconds = -2561700791000000000
+								   currentTimeNano = 1733266504811978000
+								    
+	JVM_GetNanoTimeAdjustment()     currentTimeNano (1733266504811978000)
+	 								- TIME_LONG_MAX (4294967295000000000)
+	 								 			  = -2561700790188022000 
+	JVM_GetNanoTimeAdjustment()     currentTimeNano (1733266504811978000)
+	 							   - TIME_LONG_MIN (-4294967295000000000)
+	 							    			   = 6028233799811978000 
+	!! WRONG !! JVM_GetNanoTimeAdjustment() offsetNanoSeconds(-2561700791000000000) !>= (currentTimeNano - TIME_LONG_MIN)(6028233799811978000) 
+*/
+	
+	/*
+
+TestClockSystem.testWithOffset() offset = -2558523188, clock = SystemClock[Z]
+JVM_GetNanoTimeAdjustment() offsetSeconds = -2558523188 OFFSET_MAX = 9223372036 OFFSET_MIN = -9223372036 
+JVM_GetNanoTimeAdjustment() success = 1 offsetSeconds = -2558523188 offsetNanoSeconds = -2558523188000000000 currentTimeNano = 1736444107493829000 
+JVM_GetNanoTimeAdjustment() currentTimeNano (1736444107493829000) - TIME_LONG_MAX (4294967295000000000) = -2558523187506171000 
+JVM_GetNanoTimeAdjustment() currentTimeNano (1736444107493829000) - TIME_LONG_MIN (-4294967295000000000) = 6031411402493829000 
+
+!! WRONG !! JVM_GetNanoTimeAdjustment() offsetNanoSeconds(-2558523188000000000) !>= (currentTimeNano - TIME_LONG_MAX)(-2558523187506171000)
+
+!! WRONG !! JVM_GetNanoTimeAdjustment() offsetNanoSeconds(-2558523188000000000) !>= 
+                        (currentTimeNano - TIME_LONG_MAX)(-2558523187506171000)
+ 
+JVM_GetNanoTimeAdjustment() offsetNanoSeconds(-2558523188000000000) <= (currentTimeNano - TIME_LONG_MIN)(6031411402493829000) 
+JVM_GetNanoTimeAdjustment() offsetSeconds = 1736443083 OFFSET_MAX = 9223372036 OFFSET_MIN = -9223372036 
+JVM_GetNanoTimeAdjustment() success = 1 offsetSeconds = 1736443083 offsetNanoSeconds = 1736443083000000000 currentTimeNano = 1736444107493836000 
+JVM_GetNanoTimeAdjustment() currentTimeNano (1736444107493836000) - TIME_LONG_MAX (4294967295000000000) = -2558523187506164000 
+JVM_GetNanoTimeAdjustment() currentTimeNano (1736444107493836000) - TIME_LONG_MIN (-4294967295000000000) = 6031411402493836000 
+JVM_GetNanoTimeAdjustment() offsetNanoSeconds(1736443083000000000) >= (currentTimeNano - TIME_LONG_MAX)(-2558523187506164000) 
+JVM_GetNanoTimeAdjustment() offsetNanoSeconds(1736443083000000000) <= (currentTimeNano - TIME_LONG_MIN)(6031411402493836000) 
+JVM_GetNanoTimeAdjustment() result = 1024493836000 
+TestClockSystem.testWithOffset() beforeMillis = 1736444107493, instant = 2025-01-09T17:35:07.493836Z, afterMillis = 1736444107494, actualOffset = 1736443083, instantMillis = 1736444107493
+TestClockSystem.isOffLimits() before = 1736444107, after = 1736444107, offset = -2558523188, relativeDistanceBefore = 4294967295, relativeDistanceAfter = 4294967295
+TestClockSystem.isOffLimits() NO
+Exception in thread "main" java.lang.RuntimeException: System.currentTimeMillis()/1000 - MAX_OFFSET + 1: offset was not offlimit but was recomputed. actualOffset = 1736443083, offset = -2558523188
+
+!! WRONG !! JVM_GetNanoTimeAdjustment() offsetNanoSeconds(6031420986000000000) 
+       !<= (currentTimeNano - TIME_LONG_MIN - nanoPerSec)(6031420985345057000) 
+
 	 */
 	if ((offsetSeconds <= OFFSET_MAX) && (offsetSeconds >= OFFSET_MIN)) {
 		UDATA success = 0;
 		offsetNanoSeconds = offsetSeconds * J9TIME_NANOSECONDS_PER_SECOND;
 		currentTimeNano = (jlong) j9time_current_time_nanos(&success);
+		printf("JVM_GetNanoTimeAdjustment() success = %zu offsetSeconds = %lld offsetNanoSeconds = %lld currentTimeNano = %lld \n", success, offsetSeconds, offsetNanoSeconds, currentTimeNano);
+		printf("JVM_GetNanoTimeAdjustment() currentTimeNano (%lld) - TIME_LONG_MAX (%lld) = %lld \n", currentTimeNano, TIME_LONG_MAX, currentTimeNano - TIME_LONG_MAX);
+		printf("JVM_GetNanoTimeAdjustment() currentTimeNano (%lld) - TIME_LONG_MIN (%lld) = %lld \n", currentTimeNano, TIME_LONG_MIN, currentTimeNano - TIME_LONG_MIN);
+		if (offsetNanoSeconds >= (currentTimeNano - TIME_LONG_MAX - nanoPerSec)) {
+			printf("JVM_GetNanoTimeAdjustment() offsetNanoSeconds(%lld) >= (currentTimeNano - TIME_LONG_MAX - nanoPerSec)(%lld) \n", offsetNanoSeconds, currentTimeNano - TIME_LONG_MAX - nanoPerSec);
+		} else {
+			printf("!! WRONG !! JVM_GetNanoTimeAdjustment() offsetNanoSeconds(%lld) !>= (currentTimeNano - TIME_LONG_MAX - nanoPerSec)(%lld) \n", offsetNanoSeconds, currentTimeNano - TIME_LONG_MAX - nanoPerSec);
+		}
+		if (offsetNanoSeconds <= (currentTimeNano - TIME_LONG_MIN)) {
+			printf("JVM_GetNanoTimeAdjustment() offsetNanoSeconds(%lld) <= (currentTimeNano - TIME_LONG_MIN)(%lld) \n", offsetNanoSeconds, currentTimeNano - TIME_LONG_MIN);
+		} else {
+			printf("!! WRONG !! JVM_GetNanoTimeAdjustment() offsetNanoSeconds(%lld) !<= (currentTimeNano - TIME_LONG_MIN)(%lld) \n", offsetNanoSeconds, currentTimeNano - TIME_LONG_MIN);
+		}
 		if (success) {
-			if ((offsetNanoSeconds >= (currentTimeNano - TIME_LONG_MAX))
+			if ((offsetNanoSeconds >= (currentTimeNano - TIME_LONG_MAX - nanoPerSec))
 				&& (offsetNanoSeconds <= (currentTimeNano - TIME_LONG_MIN))
 			) {
 				result = currentTimeNano - offsetNanoSeconds;
+				printf("JVM_GetNanoTimeAdjustment() result = %lld \n", result);
 			}
 		}
 	}

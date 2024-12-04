@@ -3145,7 +3145,8 @@ done:
 	inlSystemCurrentTimeMillis(REGISTER_ARGS_LIST)
 	{
 		PORT_ACCESS_FROM_JAVAVM(_vm);
-		returnDoubleFromINL(REGISTER_ARGS, j9time_current_time_millis(), 0);
+		UDATA success = 0;
+		returnDoubleFromINL(REGISTER_ARGS, j9time_current_time_nanos(&success)/1000000, 0);
 		return EXECUTE_BYTECODE;
 	}
 

@@ -34,7 +34,9 @@ jlong JNICALL
 Fast_java_lang_System_currentTimeMillis(J9VMThread *currentThread)
 {
 	PORT_ACCESS_FROM_VMC(currentThread);
-	return j9time_current_time_millis();
+	UDATA success = 0;
+	return j9time_current_time_nanos(&success)/1000000;
+//	return j9time_current_time_millis();
 }
 
 /* java.lang.System: public static native long nanoTime(); */
