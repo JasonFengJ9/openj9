@@ -41,6 +41,8 @@ import java.security.PrivilegedExceptionAction;
 /*[ENDIF] JAVA_SPEC_VERSION < 24 */
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -55,6 +57,8 @@ import openj9.internal.tools.attach.target.IPC;
 import openj9.internal.tools.attach.target.Reply;
 import openj9.internal.tools.attach.target.Response;
 import openj9.internal.tools.attach.target.TargetDirectory;
+
+import com.ibm.oti.vm.VM;
 import com.sun.tools.attach.AgentInitializationException;
 import com.sun.tools.attach.AgentLoadException;
 import com.sun.tools.attach.AttachNotSupportedException;
@@ -79,11 +83,13 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 	 */
 	private static final int ATTACH_CONNECTED_MESSAGE_LENGTH_LIMIT = 4000;
 	/* The units for timeouts are milliseconds, Set to 0 for no timeout. */
-	private static final int DEFAULT_ATTACH_TIMEOUT = 120000;	/* should be ~2* the TCP timeout, i.e. /proc/sys/net/ipv4/tcp_fin_timeout on Linux */
-	private static final int DEFAULT_COMMAND_TIMEOUT = 0;
+	private static final String DEFAULT_ATTACH_TIMEOUT = "120000";	/* should be ~2* the TCP timeout, i.e. /proc/sys/net/ipv4/tcp_fin_timeout on Linux */
+	private static final String DEFAULT_COMMAND_TIMEOUT = "0";
 
 	private static int MAXIMUM_ATTACH_TIMEOUT;
 	private static int COMMAND_TIMEOUT;
+	// True if attached OpenJ9VirtualMachine instance is to be reused.
+	private static final boolean REUSE_ATTACHEDVM;
 
 	private static final String INSTRUMENT_LIBRARY = "instrument"; //$NON-NLS-1$
 	private OutputStream commandStream;
@@ -96,19 +102,14 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 	private FileLock[] targetLocks;
 	private ServerSocket targetServer;
 	private Socket targetSocket;
+	private static volatile ConcurrentHashMap<String, OpenJ9VirtualMachine> openJ9VMValueMap;
+	private final AtomicInteger attachCount = new AtomicInteger();
 
 	static {
-		/*[IF JAVA_SPEC_VERSION >= 24]*/
-		MAXIMUM_ATTACH_TIMEOUT = Integer.getInteger("com.ibm.tools.attach.timeout", DEFAULT_ATTACH_TIMEOUT).intValue(); //$NON-NLS-1$
-		COMMAND_TIMEOUT = Integer.getInteger("com.ibm.tools.attach.command_timeout", DEFAULT_COMMAND_TIMEOUT).intValue(); //$NON-NLS-1$
-		/*[ELSE] JAVA_SPEC_VERSION >= 24 */
-		PrivilegedAction<Object> action = () -> {
-			MAXIMUM_ATTACH_TIMEOUT = Integer.getInteger("com.ibm.tools.attach.timeout", DEFAULT_ATTACH_TIMEOUT).intValue(); //$NON-NLS-1$
-			COMMAND_TIMEOUT = Integer.getInteger("com.ibm.tools.attach.command_timeout", DEFAULT_COMMAND_TIMEOUT).intValue(); //$NON-NLS-1$
-			return null;
-		};
-		AccessController.doPrivileged(action);
-		/*[ENDIF] JAVA_SPEC_VERSION >= 24 */
+		Properties props = VM.internalGetProperties();
+		COMMAND_TIMEOUT = Integer.valueOf(props.getProperty("com.ibm.tools.attach.command_timeout", DEFAULT_COMMAND_TIMEOUT)).intValue(); //$NON-NLS-1$
+		MAXIMUM_ATTACH_TIMEOUT = Integer.valueOf(props.getProperty("com.ibm.tools.attach.timeout", DEFAULT_ATTACH_TIMEOUT)).intValue(); //$NON-NLS-1$
+		REUSE_ATTACHEDVM = props.getProperty("com.ibm.tools.attach.reuseAttachedVM") != null;
 	}
 
 	/**
@@ -129,19 +130,44 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 		this.descriptor = (OpenJ9VirtualMachineDescriptor) myProvider.getDescriptor(id);
 	}
 
+	private static ConcurrentHashMap<String, OpenJ9VirtualMachine> createOrGetOpenJ9VMValueMap() {
+		if (openJ9VMValueMap == null) {
+			synchronized(OpenJ9VirtualMachine.class) {
+				if (openJ9VMValueMap == null) {
+					openJ9VMValueMap = new ConcurrentHashMap<>();
+				}
+			}
+			IPC.logMessage("OpenJ9VirtualMachine.createOrGetOpenJ9VMValueMap() REUSE_ATTACHEDVM is true"); //$NON-NLS-1$
+		}
+		return openJ9VMValueMap;
+	}
+
+	static OpenJ9VirtualMachine attachOrGetOpenJ9VM(AttachProvider provider, String vmid) throws AttachNotSupportedException, IOException {
+		OpenJ9VirtualMachine openJ9VM = null;
+		if (REUSE_ATTACHEDVM) {
+			openJ9VMValueMap = createOrGetOpenJ9VMValueMap();
+			openJ9VM = openJ9VMValueMap.get(vmid);
+		}
+		if (openJ9VM == null) {
+			IPC.logMessage("OpenJ9VirtualMachine.attachOrGetOpenJ9VM() target id: " + vmid); //$NON-NLS-1$
+			openJ9VM = new OpenJ9VirtualMachine(provider, vmid).attachTarget();
+		}
+		return openJ9VM;
+	}
+
 	/**
 	 * @throws IOException
 	 *             if cannot open the communication files
 	 * @throws AttachNotSupportedException
 	 *             if the descriptor is null the target does not respond.
 	 */
-	void attachTarget() throws IOException, AttachNotSupportedException {
+	OpenJ9VirtualMachine attachTarget() throws IOException, AttachNotSupportedException {
 		/*[IF JAVA_SPEC_VERSION >= 24]*/
-		attachTargetImpl();
+		return attachTargetImpl();
 		/*[ELSE] JAVA_SPEC_VERSION >= 24 */
-		PrivilegedExceptionAction<Object> action = () -> {attachTargetImpl(); return null;};
+		PrivilegedExceptionAction<OpenJ9VirtualMachine> action = () -> {return attachTargetImpl();};
 		try {
-			AccessController.doPrivileged(action);
+			return AccessController.doPrivileged(action);
 		} catch (PrivilegedActionException e) {
 			Throwable cause = e.getCause();
 			if (cause instanceof AttachNotSupportedException) {
@@ -159,7 +185,8 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 		/*[ENDIF] JAVA_SPEC_VERSION >= 24 */
 	}
 
-	private void attachTargetImpl() throws AttachNotSupportedException, IOException {
+	private OpenJ9VirtualMachine attachTargetImpl() throws AttachNotSupportedException, IOException {
+		OpenJ9VirtualMachine openj9VM = null;
 		if (null == descriptor) {
 			/*[MSG "K0531", "target {0} not found"]*/
 			throw new AttachNotSupportedException(getString("K0531", targetId)); //$NON-NLS-1$
@@ -170,7 +197,7 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 		while (timeout < MAXIMUM_ATTACH_TIMEOUT) {
 			lastException = null;
 			try {
-				tryAttachTarget(timeout);
+				openj9VM = tryAttachTarget(timeout);
 			} catch (AttachNotSupportedException e) {
 				IPC.logMessage("attachTarget " + targetId + " timeout after " + timeout+" ms"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 				lastException = e;
@@ -191,6 +218,7 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 		} else {
 			IPC.logMessage("OpenJ9VirtualMachine.attachTargetImpl() finished"); //$NON-NLS-1$
 		}
+		return openj9VM;
 	}
 
 	private static String createLoadAgent(String agentName, String options) {
@@ -219,25 +247,34 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 	 */
 	@Override
 	public synchronized void detach() throws IOException {
-		AttachmentConnection.streamSend(commandStream, Command.DETACH);
-		try {
-			AttachmentConnection.streamReceiveString(responseStream);
-		} finally {
-			IPC.logMessage("VirtualMachine.detach"); //$NON-NLS-1$
-			if (null != commandStream) {
-				commandStream.close();
-				commandStream = null;
+		int count = 0;
+		if (REUSE_ATTACHEDVM) {
+			count = attachCount.decrementAndGet();
+		}
+		if (count == 0) {
+			AttachmentConnection.streamSend(commandStream, Command.DETACH);
+			try {
+				AttachmentConnection.streamReceiveString(responseStream);
+			} finally {
+				IPC.logMessage("VirtualMachine.detach"); //$NON-NLS-1$
+				if (null != commandStream) {
+					commandStream.close();
+					commandStream = null;
+				}
+				if (null != targetSocket) {
+					targetSocket.close();
+					targetSocket = null;
+				}
+				if (null != targetServer) {
+					targetServer.close();
+					targetServer = null;
+				}
 			}
-			if (null != targetSocket) {
-				targetSocket.close();
-				targetSocket = null;
-			}
-			if (null != targetServer) {
-				targetServer.close();
-				targetServer = null;
+			targetAttached = false;
+			if (REUSE_ATTACHEDVM) {
+				openJ9VMValueMap.remove(this.targetId);
 			}
 		}
-		targetAttached = false;
 	}
 
 	@Override
@@ -253,10 +290,6 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 
 	@Override
 	public Properties getSystemProperties() throws IOException {
-		if (!targetAttached) {
-			/*[MSG "K0544", "Target not attached"]*/
-			throw new IOException(getString("K0544")); //$NON-NLS-1$
-		}
 		Properties props = getTargetProperties(true);
 		return props;
 	}
@@ -269,6 +302,11 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 	 */
 	private synchronized Properties getTargetProperties(boolean systemProperties)
 			throws IOException {
+		if (!targetAttached) {
+			/*[MSG "K0544", "Target not attached"]*/
+			throw new IOException(getString("K0544")); //$NON-NLS-1$
+		}
+
 		AttachmentConnection.streamSend(commandStream,
 				systemProperties ? Command.GET_SYSTEM_PROPERTIES
 						: Command.GET_AGENT_PROPERTIES);
@@ -439,14 +477,24 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 		return ret;
 	}
 
-	private void tryAttachTarget(int timeout) throws IOException,
+	private OpenJ9VirtualMachine tryAttachTarget(int timeout) throws IOException,
 			AttachNotSupportedException {
+		OpenJ9VirtualMachine openj9VM = null;
 		Reply replyFile = null;
 		AttachHandler.waitForAttachApiInitialization(); /* ignore result: we can still attach to another target if API is disabled */
 		IPC.logMessage("VirtualMachineImpl.tryAttachtarget"); //$NON-NLS-1$
 		Object myIn = AttachHandler.getMainHandler().getIgnoreNotification();
 
 		synchronized (myIn) {
+			if (REUSE_ATTACHEDVM) {
+				OpenJ9VirtualMachine openJ9VM = openJ9VMValueMap.get(this.targetId);
+				if (openJ9VM != null) {
+					IPC.logMessage("VirtualMachineImpl.tryAttachtarget() reuse an attached VM instance"); //$NON-NLS-1$
+					openJ9VM.attachCount.incrementAndGet();
+					return openJ9VM;
+				}
+			}
+
 			int numberOfTargets = 0;
 			try {
 				CommonDirectory.obtainAttachLock("OpenJ9VirtualMachine.tryAttachTarget(" + timeout + ")"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -454,7 +502,7 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 				List<VirtualMachineDescriptor> vmds = myProvider.listVirtualMachines();
 				if (null == vmds) {
 					IPC.logMessage("OpenJ9VirtualMachine.tryAttachTarget() myProvider.listVirtualMachines() returns null"); //$NON-NLS-1$
-					return;
+					return this;
 				} else {
 					IPC.logMessage("OpenJ9VirtualMachine.tryAttachTarget() myProvider.listVirtualMachines() returns"); //$NON-NLS-1$
 				}
@@ -463,7 +511,7 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 				int thePort = targetServer.getLocalPort();
 				if (thePort < 0) {
 					IPC.logMessage("OpenJ9VirtualMachine.tryAttachTarget() ServerSocket is not bound yet, port: ", thePort); //$NON-NLS-1$
-					return;
+					return this;
 				}
 				portNumber = Integer.valueOf(thePort);
 				String key = IPC.getRandomString();
@@ -531,6 +579,12 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 				}
 				IPC.logMessage("attachTarget connected on ", portNumber.toString()); //$NON-NLS-1$
 				targetAttached = true;
+				openj9VM = this;
+				if (REUSE_ATTACHEDVM) {
+					IPC.logMessage("VirtualMachineImpl.tryAttachtarget() save an attached VM instance"); //$NON-NLS-1$
+					openJ9VMValueMap.put(this.targetId, openj9VM);
+					attachCount.incrementAndGet();
+				}
 			} finally {
 				if (null != replyFile) {
 					replyFile.deleteReply();
@@ -553,6 +607,7 @@ public final class OpenJ9VirtualMachine extends VirtualMachine implements Respon
 				CommonDirectory.releaseAttachLock("OpenJ9VirtualMachine.tryAttachTarget(" + timeout + ")"); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 		}
+		return openj9VM;
 	}
 
 	private void unlockAllAttachNotificationSyncFiles() {

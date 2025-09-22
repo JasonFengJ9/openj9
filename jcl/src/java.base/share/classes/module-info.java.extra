@@ -27,6 +27,7 @@ exports com.ibm.sharedclasses.spi to
     openj9.sharedclasses;
 exports com.ibm.oti.vm to
     java.management,
+    jdk.attach,
     jdk.management,
     openj9.cuda,
     openj9.gpu,

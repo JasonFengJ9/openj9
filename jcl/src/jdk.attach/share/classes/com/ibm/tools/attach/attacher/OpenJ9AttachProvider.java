@@ -68,10 +68,8 @@ public class OpenJ9AttachProvider extends AttachProvider {
 		checkAttachSecurity();
 		/*[ENDIF] JAVA_SPEC_VERSION < 24 */
 		try {
-			OpenJ9VirtualMachine vm = new OpenJ9VirtualMachine(this, id);
 			IPC.logMessage("Attach target id: " + id); //$NON-NLS-1$
-			vm.attachTarget();
-			return vm;
+			return OpenJ9VirtualMachine.attachOrGetOpenJ9VM(this, id);
 		} catch (NullPointerException e) {
 		/* constructor throws an NPE if the ID or name is not set.
 		Turn this into an exception the  application is expecting */
@@ -95,10 +93,8 @@ public class OpenJ9AttachProvider extends AttachProvider {
 		}
 
 		String id = descriptor.id();
-		OpenJ9VirtualMachine vm = new OpenJ9VirtualMachine(this, id);
 		IPC.logMessage("Attach target descriptor.id(): " + id); //$NON-NLS-1$
-		vm.attachTarget();
-		return vm;
+		return OpenJ9VirtualMachine.attachOrGetOpenJ9VM(this, id);
 	}
 
 	@Override
