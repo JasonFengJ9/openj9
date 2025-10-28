@@ -663,13 +663,21 @@ Java_sun_misc_Unsafe_setMemory__Ljava_lang_Object_2JJB(JNIEnv *env, jobject rece
 	J9InternalVMFunctions *vmFuncs = vm->internalVMFunctions;
 	vmFuncs->internalEnterVMFromJNI(currentThread);
 	UDATA actualSize = (UDATA)(U_64)size;
+	printf("Java_sun_misc_Unsafe_setMemory__Ljava_lang_Object_2JJB starts \n");
 	if ((size < 0) || (size != (jlong)(IDATA)actualSize)) {
 illegal:
+		printf("Java_sun_misc_Unsafe_setMemory__Ljava_lang_Object_2JJB setCurrentExceptionUTF \n");
 		vmFuncs->setCurrentExceptionUTF(currentThread, J9VMCONSTANTPOOL_JAVALANGILLEGALARGUMENTEXCEPTION, NULL);
 	} else if (NULL == obj) {
 		/* NULL object - raw memset */
+		printf("Java_sun_misc_Unsafe_setMemory__Ljava_lang_Object_2JJB obj is NULL, (IDATA)offset = %lli, (int)value = %d, actualSize = %llu \n",
+				(IDATA)offset, (int)value, actualSize);
 		memset((void *)(IDATA)offset, (int)value, actualSize);
+		printf("Java_sun_misc_Unsafe_setMemory__Ljava_lang_Object_2JJB after memset \n");
 	} else {
+		printf("Java_sun_misc_Unsafe_setMemory__Ljava_lang_Object_2JJB obj is NOT NULL, (IDATA)offset = %lli, (int)value = %d, actualSize = %llu \n",
+				(IDATA)offset, (int)value, actualSize);
+
 		j9object_t object = J9_JNI_UNWRAP_REFERENCE(obj);
 		J9Class *clazz = J9OBJECT_CLAZZ(currentThread, object);
 		if (!J9CLASS_IS_ARRAY(clazz)) {
@@ -679,7 +687,9 @@ illegal:
 			goto illegal;
 		}
 		offset -= VM_UnsafeAPI::arrayBase(currentThread);
+		printf("Java_sun_misc_Unsafe_setMemory__Ljava_lang_Object_2JJB before primitiveArrayFill \n");
 		VM_ArrayCopyHelpers::primitiveArrayFill(currentThread, object, (UDATA)offset, actualSize, (U_8)value);
+		printf("Java_sun_misc_Unsafe_setMemory__Ljava_lang_Object_2JJB after primitiveArrayFill \n");
 	}
 	vmFuncs->internalExitVMToJNI(currentThread);
 }
