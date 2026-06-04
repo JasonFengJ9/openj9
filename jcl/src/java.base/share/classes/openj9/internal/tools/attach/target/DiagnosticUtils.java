@@ -660,7 +660,7 @@ public class DiagnosticUtils {
 
 /*[IF JFR_SUPPORT]*/
 		if (VM.isJFREnabled()) {
-/*[IF JAVA_SPEC_VERSION == 17]*/
+/*[IF JAVA_SPEC_VERSION >= 17]*/
 			if (VM.isJFRV2SupportEnabled()) {
 				commandTable.put(JFR.DIAGNOSTICS_JFR_START, JFR::doJFRv2);
 				helpTable.put(JFR.DIAGNOSTICS_JFR_START, JFR.DIAGNOSTICS_JFR_START_HELP);
@@ -674,7 +674,7 @@ public class DiagnosticUtils {
 				commandTable.put(JFR.DIAGNOSTICS_JFR_CONFIGURE, JFR::doJFRv2);
 				helpTable.put(JFR.DIAGNOSTICS_JFR_CONFIGURE, JFR.DIAGNOSTICS_JFR_CONFIGURE_HELP);
 			} else
-/*[ENDIF] JAVA_SPEC_VERSION == 17 */
+/*[ENDIF] JAVA_SPEC_VERSION >= 17 */
 			{
 				commandTable.put(JFR.DIAGNOSTICS_JFR_START, JFR::doJFR);
 				helpTable.put(JFR.DIAGNOSTICS_JFR_START, JFR.DIAGNOSTICS_JFR_START_HELP);

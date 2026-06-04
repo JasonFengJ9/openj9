@@ -411,8 +411,8 @@ public class TestJcmd extends AttachApiTest {
 
 	@Test
 	public void testJFRStart() throws IOException {
-		if (VersionCheck.major() != 17) {
-			log("Skip JFR V2 test for non JDK17");
+		if (VersionCheck.major() < 17) {
+			log("Skip JFR V2 test for JDK 8/11");
 			return;
 		}
 		TargetManager tgt = new TargetManager(TestConstants.TARGET_VM_CLASS, null,
@@ -439,8 +439,8 @@ public class TestJcmd extends AttachApiTest {
 
 	@Test
 	public void testJFRDump() throws IOException {
-		if (VersionCheck.major() != 17) {
-			log("Skip JFR V2 test for non JDK17");
+		if (VersionCheck.major() < 17) {
+			log("Skip JFR V2 test for JDK 8/11");
 			return;
 		}
 		TargetManager tgt = new TargetManager(TestConstants.TARGET_VM_CLASS, null,
@@ -475,8 +475,8 @@ public class TestJcmd extends AttachApiTest {
 
 	@Test
 	public void testJFRStop() throws IOException {
-		if (VersionCheck.major() != 17) {
-			log("Skip JFR V2 test for non JDK17");
+		if (VersionCheck.major() < 17) {
+			log("Skip JFR V2 test for JDK 8/11");
 			return;
 		}
 		TargetManager tgt = new TargetManager(TestConstants.TARGET_VM_CLASS, null,
@@ -511,8 +511,8 @@ public class TestJcmd extends AttachApiTest {
 
 	@Test
 	public void testJFRConfigure() throws IOException {
-		if (VersionCheck.major() != 17) {
-			log("Skip JFR V2 test for non JDK17");
+		if (VersionCheck.major() < 17) {
+			log("Skip JFR V2 test for JDK 8/11");
 			return;
 		}
 		TargetManager tgt = new TargetManager(TestConstants.TARGET_VM_CLASS, null,

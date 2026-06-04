@@ -152,7 +152,7 @@ final class JFRHelpers {
 	}
 
 	private static void initJFRCmdlineOptions() {
-		/*[IF (JAVA_SPEC_VERSION == 11) | (JAVA_SPEC_VERSION == 17)]*/
+		/*[IF JAVA_SPEC_VERSION >= 11]*/
 		try {
 			dcmdStart = initDCmdInvocation(dcmdStart, "jdk.jfr.internal.dcmd.DCmdStart");
 			/*[IF JAVA_SPEC_VERSION == 11]*/
@@ -233,9 +233,9 @@ final class JFRHelpers {
 		} catch (Exception e) {
 			throw new InternalError(e);
 		}
-		/*[ELSE] (JAVA_SPEC_VERSION == 11) | (JAVA_SPEC_VERSION == 17) */
+		/*[ELSE] JAVA_SPEC_VERSION >= 11 */
 		throw new InternalError("JFR support is not enabled");
-		/*[ENDIF] (JAVA_SPEC_VERSION == 11) | (JAVA_SPEC_VERSION == 17) */
+		/*[ENDIF] JAVA_SPEC_VERSION >= 11 */
 	}
 
 	/**
@@ -319,7 +319,7 @@ final class JFRHelpers {
 	}
 	/*[ENDIF] JAVA_SPEC_VERSION >= 17 */
 
-	/*[IF JAVA_SPEC_VERSION == 17]*/
+	/*[IF JAVA_SPEC_VERSION >= 17]*/
 	private static byte[] transformClassAndInvokebytesForEagerInstrumentation(long traceId, boolean forceInstrumentation, Class<?> superClass, byte[] oldBytes, boolean addMethods) throws ReflectiveOperationException {
 		try {
 			oldBytes = JFRClassTransformer.transformClass(oldBytes, addMethods);
@@ -336,7 +336,7 @@ final class JFRHelpers {
 		}
 		return Arrays.asList(array);
 	}
-	/*[ENDIF] JAVA_SPEC_VERSION == 17 */
+	/*[ENDIF] JAVA_SPEC_VERSION >= 17 */
 
 	private static void initJFRv2() {
 		if (!VM.isJFREnabled() || !VM.isJFRV2SupportEnabled()) {
@@ -434,7 +434,7 @@ final class JFRHelpers {
 		stopThread.start();
 	}
 
-	/*[IF (JAVA_SPEC_VERSION == 11) | (JAVA_SPEC_VERSION == 17) ]*/
+	/*[IF JAVA_SPEC_VERSION >= 11 ]*/
 	private static DCmdInvocation initDCmdInvocation(DCmdInvocation dcmdInvocation, String className) {
 		// No synchronization overhead, it is okay to initialize dcmdInvocation more than once.
 		if (dcmdInvocation == null) {
@@ -475,7 +475,7 @@ final class JFRHelpers {
 							Boolean.class // pathToGcRoots
 							);
 				} else
-				/*[ENDIF] JAVA_SPEC_VERSION >= 11 */
+				/*[ENDIF] JAVA_SPEC_VERSION == 11 */
 				{
 					dcmdExecute = dcmdClass.getSuperclass().getDeclaredMethod(
 							"execute",
@@ -584,5 +584,5 @@ final class JFRHelpers {
 			throw new InternalError(e);
 		}
 	}
-	/*[ENDIF] (JAVA_SPEC_VERSION == 11) | (JAVA_SPEC_VERSION == 17) */
+	/*[ENDIF] JAVA_SPEC_VERSION >= 11 */
 }

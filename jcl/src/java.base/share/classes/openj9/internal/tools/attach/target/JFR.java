@@ -294,7 +294,7 @@ public class JFR {
 		return result;
 	}
 
-/*[IF JAVA_SPEC_VERSION == 17]*/
+/*[IF JAVA_SPEC_VERSION >= 17]*/
 	static DiagnosticProperties doJFRv2(String diagnosticCommand) {
 		// Split the command and arguments.
 		String[] parts = diagnosticCommand.split(DiagnosticUtils.DIAGNOSTICS_OPTION_SEPARATOR);
@@ -386,5 +386,5 @@ public class JFR {
 
 		return result;
 	}
-/*[ENDIF] JAVA_SPEC_VERSION == 17 */
+/*[ENDIF] JAVA_SPEC_VERSION >= 17 */
 }

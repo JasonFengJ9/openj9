@@ -4634,7 +4634,7 @@ processVMArgsFromFirstToLast(J9JavaVM * vm)
 		}
 	}
 	{
-#if JAVA_SPEC_VERSION == 17
+#if JAVA_SPEC_VERSION >= 17
 		if (J9_ARE_ANY_BITS_SET(vm->extendedRuntimeFlags2, J9_EXTENDED_RUNTIME2_JFR_ENABLED)) {
 			/* JFR V2 implementation can be enabled only when JFR support is enabled. */
 			IDATA enableJFRV2 = FIND_AND_CONSUME_VMARG(EXACT_MATCH, VMOPT_XXENABLEOPENJ9EXPERIMENTALFLIGHTRECORDING, NULL);
@@ -4645,7 +4645,7 @@ processVMArgsFromFirstToLast(J9JavaVM * vm)
 				vm->extendedRuntimeFlags3 |= J9_EXTENDED_RUNTIME3_JFR_V2_SUPPORT;
 			}
 		}
-#endif /* JAVA_SPEC_VERSION == 17 */
+#endif /* JAVA_SPEC_VERSION >= 17 */
 	}
 	{
 		IDATA startFlightRecordingIndex = FIND_AND_CONSUME_VMARG(STARTSWITH_MATCH, VMOPT_XXSTARTFLIGHTRECORDING, NULL);

@@ -290,7 +290,7 @@ final class VMAccess implements VMLangAccess {
 		return clazz.constantPoolObject;
 	}
 
-	/*[IF JAVA_SPEC_VERSION == 17]*/
+	/*[IF JAVA_SPEC_VERSION >= 17]*/
 	/**
 	 * Invoke jdk.jfr.internal.dcmd.DCmdStart.execute().
 	 *
@@ -355,5 +355,5 @@ final class VMAccess implements VMLangAccess {
 	public String[] doJFRDCmdDumpExecute(String execArgs) {
 		return JFRHelpers.doJFRDCmdDumpExecute(execArgs);
 	}
-	/*[ENDIF] JAVA_SPEC_VERSION == 17 */
+	/*[ENDIF] JAVA_SPEC_VERSION >= 17 */
 }

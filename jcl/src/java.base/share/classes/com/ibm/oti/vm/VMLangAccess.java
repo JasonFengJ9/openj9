@@ -222,7 +222,7 @@ public interface VMLangAccess {
 	 */
 	public ConstantPool getConstantPoolCache(Class<?> clazz);
 
-	/*[IF JAVA_SPEC_VERSION == 17]*/
+	/*[IF JAVA_SPEC_VERSION >= 17]*/
 	/**
 	 * Invoke jdk.jfr.internal.dcmd.DCmdStart.execute().
 	 *
@@ -265,5 +265,5 @@ public interface VMLangAccess {
 	 * @return A string array returned from DCmdDump.execute()
 	 */
 	public String[] doJFRDCmdDumpExecute(String execArgs);
-	/*[ENDIF] JAVA_SPEC_VERSION == 17 */
+	/*[ENDIF] JAVA_SPEC_VERSION >= 17 */
 }
