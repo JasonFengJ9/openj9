@@ -54,7 +54,7 @@ SPDX-License-Identifier: EPL-2.0 OR Apache-2.0 OR GPL-2.0-only WITH Classpath-ex
 		<output type="required" caseSensitive="yes" regex="no">jdk.Metadata</output>
 	</test>
 	<test id="test jfr print - approx 30seconds">
-		<command>$JFR_EXE$ print --xml --events "*" --stack-depth 1 experimentalRecording.jfr</command>
+		<command>$JFR_EXE$ print --xml --events \"*\" --stack-depth 1 experimentalRecording.jfr</command>
 		<output type="required" caseSensitive="yes" regex="no">ExecutionSample</output>
 		<output type="success" caseSensitive="yes" regex="no">stackTrace</output>
 		<output type="required" caseSensitive="yes" regex="no">JVMInformation</output>
