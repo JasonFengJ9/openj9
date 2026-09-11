@@ -168,44 +168,6 @@ public class JFR {
 		return defaultValue;
 	}
 
-	private static Object parseTypeParameter(String typeName, String[] types, Object defaultValue) {
-		for (String type : types) {
-			if (type.startsWith(typeName + "=")) {
-				int valueStart = type.indexOf("=");
-				if (valueStart != -1) {
-					Object result;
-					String typeValue = type.substring(valueStart + 1);
-					IPC.logMessage("JFR:parseTypeParameter() typeName = " + typeName + ", found typeValue = " + typeValue);
-					switch (typeName) {
-					case "repositorypath":
-					case "dumppath":
-						result = typeValue;
-						break;
-					case "stackdepth":
-						result = new Integer(typeValue);
-						break;
-					case "globalbuffercount":
-					case "globalbuffersize":
-					case "thread_buffer_size":
-					case "memorysize":
-					case "maxchunksize":
-						result = new Long(typeValue);
-						break;
-					case "samplethreads":
-						result = new Boolean(typeValue);
-						break;
-					default:
-						IPC.logMessage("JFR:parseTypeParameter() unexpected typeName = " + typeName);
-						result = null;
-						break;
-					}
-					return result;
-				}
-			}
-		}
-		return defaultValue;
-	}
-
 	static DiagnosticProperties doJFR(String diagnosticCommand) {
 		if (VM.isStartFlightRecordingSpecified()) {
 			return DiagnosticProperties.makeStringResult("Cannot use jcmd JFR options at the same time as -XX:startFlightRecording.");
@@ -295,6 +257,20 @@ public class JFR {
 	}
 
 /*[IF JAVA_SPEC_VERSION == 17]*/
+	// The enum constants have to match those JFR.configure options at
+	// https://github.com/ibmruntimes/openj9-openjdk-jdk17/blob/openj9/src/jdk.jcmd/share/man/jcmd.1
+	private static enum ConfigureTypes {
+		repositorypath,
+		dumppath,
+		stackdepth,
+		globalbuffercount,
+		globalbuffersize,
+		thread_buffer_size,
+		memorysize,
+		maxchunksize,
+		samplethreads
+	}
+
 	static DiagnosticProperties doJFRv2(String diagnosticCommand) {
 		// Split the command and arguments.
 		String[] parts = diagnosticCommand.split(DiagnosticUtils.DIAGNOSTICS_OPTION_SEPARATOR);
@@ -339,36 +315,110 @@ public class JFR {
 				result = DiagnosticProperties.makeStringResult(Stream.of(jfrDcmdResult).collect(Collectors.joining("\n")));
 				break;
 			case DIAGNOSTICS_JFR_CONFIGURE:
-				String repositoryPath = (String) parseTypeParameter("repositorypath", parts, null);
-				String dumpPath = (String) parseTypeParameter("dumppath", parts, null);
-				Integer stackDepth = (Integer) parseTypeParameter("stackdepth", parts, null);
-				Long globalBufferCount = (Long) parseTypeParameter("globalbuffercount", parts, null);
-				Long globalBufferSize = (Long) parseTypeParameter("globalbuffersize", parts, null);
-				Long threadBufferSize = (Long) parseTypeParameter("thread_buffer_size", parts, null);
-				Long memorySize = (Long) parseTypeParameter("memorysize", parts, null);
-				Long maxChunkSize = (Long) parseTypeParameter("maxchunksize", parts, null);
-				Boolean sampleThreads = (Boolean) parseTypeParameter("samplethreads", parts, null);
+				String paramRepositoryPath = null;
+				String paramDumpPath = null;
+				Integer paramStackDepth = null;
+				Long paramGlobalBufferCount = null;
+				Long paramGlobalBufferSize = null;
+				Long paramThreadBufferSize = null;
+				Long paramMemorySize = null;
+				Long paramMaxChunkSize = null;
+				Boolean paramSampleThreads = null;
+				for (int index = 1; index < parts.length; index++) {
+					String part = parts[index];
+					int valueStart = part.indexOf("=");
+					if (valueStart == -1) {
+						return DiagnosticProperties.makeErrorProperties(
+								"unrecognized JFR.configure option: " + part);
+					}
+					String partName = part.substring(0, valueStart);
+					String partValue = part.substring(valueStart + 1);
+					IPC.logMessage("DIAGNOSTICS_JFR_CONFIGURE partName = " + partName + ", found partValue = " + partValue);
+					ConfigureTypes partType;
+					try {
+						partType = ConfigureTypes.valueOf(partName);
+					} catch (IllegalArgumentException | NullPointerException e) {
+						return DiagnosticProperties.makeErrorProperties(
+								"unrecognized JFR.configure option name: " + partName);
+					}
+					switch (partType) {
+					case repositorypath:
+						paramRepositoryPath = partValue;
+						break;
+					case dumppath:
+						paramDumpPath = partValue;
+						break;
+					case stackdepth:
+						paramStackDepth = new Integer(partValue);
+						if (paramStackDepth < 0) {
+							return result = DiagnosticProperties.makeErrorProperties(
+									"java.lang.IllegalArgumentException: Parsing error stackdepth value: negative values not allowed");
+						}
+						break;
+					case globalbuffercount:
+						paramGlobalBufferCount = new Long(partValue);
+						if (paramGlobalBufferCount < 0) {
+							return result = DiagnosticProperties.makeErrorProperties(
+									"java.lang.IllegalArgumentException: Parsing error globalbuffercount value: negative values not allowed");
+						}
+						break;
+					case globalbuffersize:
+						paramGlobalBufferSize = new Long(partValue);
+						if (paramGlobalBufferSize < 0) {
+							return result = DiagnosticProperties.makeErrorProperties(
+									"java.lang.IllegalArgumentException: Parsing error globalbuffersize value: negative values not allowed");
+						}
+						break;
+					case thread_buffer_size:
+						paramThreadBufferSize = new Long(partValue);
+						if (paramThreadBufferSize < 0) {
+							return result = DiagnosticProperties.makeErrorProperties(
+									"java.lang.IllegalArgumentException: Parsing error thread_buffer_size value: negative values not allowed");
+						}
+						break;
+					case memorysize:
+						paramMemorySize = new Long(partValue);
+						if (paramMemorySize < 0) {
+							return result = DiagnosticProperties.makeErrorProperties(
+									"java.lang.IllegalArgumentException: Parsing error memory size value: negative values not allowed");
+						}
+						break;
+					case maxchunksize:
+						paramMaxChunkSize = new Long(partValue);
+						if (paramMaxChunkSize < 0) {
+							return result = DiagnosticProperties.makeErrorProperties(
+									"java.lang.IllegalArgumentException: Parsing error maxchunksize size value: negative values not allowed");
+						}
+						break;
+					case samplethreads:
+						paramSampleThreads = new Boolean(partValue);
+						break;
+					default:
+						return DiagnosticProperties.makeErrorProperties(
+								"should not reach here: " + partName);
+					}
+				}
 				IPC.logMessage("JFRHelpers:doJFRDCmdConfigureExecute() verbose = true"
-						+ ", repositoryPath = " + repositoryPath
-						+ ", dumpPath = " + dumpPath
-						+ ", stackDepth = " + stackDepth
-						+ ", globalBufferCount = " + globalBufferCount
-						+ ", globalBufferSize = " + globalBufferSize
-						+ ", threadBufferSize = " + threadBufferSize
-						+ ", memorySize = " + memorySize
-						+ ", maxChunkSize = " + maxChunkSize
-						+ ", sampleThreads = " + sampleThreads);
+						+ ", paramRepositoryPath = " + paramRepositoryPath
+						+ ", paramDumpPath = " + paramDumpPath
+						+ ", paramStackDepth = " + paramStackDepth
+						+ ", paramGlobalBufferCount = " + paramGlobalBufferCount
+						+ ", paramGlobalBufferSize = " + paramGlobalBufferSize
+						+ ", paramThreadBufferSize = " + paramThreadBufferSize
+						+ ", paramMemorySize = " + paramMemorySize
+						+ ", paramMaxChunkSize = " + paramMaxChunkSize
+						+ ", paramSampleThreads = " + paramSampleThreads);
 				jfrDcmdResult = access.doJFRDCmdConfigureExecute(
 						true, // verbose on
-						repositoryPath,
-						dumpPath,
-						stackDepth,
-						globalBufferCount,
-						globalBufferSize,
-						threadBufferSize,
-						memorySize,
-						maxChunkSize,
-						sampleThreads);
+						paramRepositoryPath,
+						paramDumpPath,
+						paramStackDepth,
+						paramGlobalBufferCount,
+						paramGlobalBufferSize,
+						paramThreadBufferSize,
+						paramMemorySize,
+						paramMaxChunkSize,
+						paramSampleThreads);
 				if (LOGGING_ENABLED == loggingStatus) {
 					for (String str : jfrDcmdResult) {
 						IPC.logMessage("JFR.configure Result string = " + str);
