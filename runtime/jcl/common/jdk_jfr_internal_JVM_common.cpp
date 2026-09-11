@@ -23,6 +23,7 @@
 #include "j9.h"
 #include "jni.h"
 #include "jclprots.h"
+#include "jvminit.h"
 #include "ut_j9jcl.h"
 
 #include "ObjectAccessBarrierAPI.hpp"
@@ -30,18 +31,95 @@
 
 extern "C" {
 
-/* Make sure these logging levels line up with jdk/jfr/internal/LogLevel.java. */
-#define LOG_LEVEL_TRACE 1
-#define LOG_LEVEL_DEBUG 2
-#define LOG_LEVEL_INFO 3
-#define LOG_LEVEL_WARN 4
-#define LOG_LEVEL_ERROR 5
-
-/* Must match JFR_START's id in jdk/jfr/internal/LogTag.java. */
-#define J9JFR_LOGTAG_JFR_START 13
-
 #define JFR_STRING_BUFFER_SIZE 256
 #define JFR_CLASS_BUFFER_SIZE 32
+
+/* This matches the enum JFRLogLevel in j9nonbuilder.h. */
+static const char *jfrLogLevelLookup[LOG_LEVEL_COUNT] = {
+	LOGLEVEL_STRING_INVALID,
+	LOGLEVEL_STRING_TRACE,
+	LOGLEVEL_STRING_DEBUG,
+	LOGLEVEL_STRING_INFO,
+	LOGLEVEL_STRING_WARN,
+	LOGLEVEL_STRING_ERROR
+};
+
+/* Must match jdk.jfr.internal.LogTag. */
+typedef enum JFRLogTagType {
+	JFR = 0,
+	JFR_SYSTEM = 1,
+	JFR_SYSTEM_EVENT = 2,
+	JFR_SYSTEM_SETTING = 3,
+	JFR_SYSTEM_BYTECODE = 4,
+	JFR_SYSTEM_PARSER = 5,
+	JFR_SYSTEM_METADATA = 6,
+	JFR_SYSTEM_STREAMING = 7,
+	JFR_SYSTEM_THROTTLE = 8,
+	JFR_METADATA = 9,
+	JFR_EVENT = 10,
+	JFR_SETTING = 11,
+	JFR_DCMD = 12,
+	JFR_START = 13
+} JFRLogTagType;
+
+/**
+ * Convert jdk.jfr.internal.LogTag to JFRLogTagCombination. 
+ *
+ * @param tagSetId[in] one of JFRLogTagType
+ *
+ * @return one of JFRLogTagCombination
+ */
+static int
+jfrLogTagLookup(int tagSetId) {
+	int jfrLogTagCombination = COMBINATION_JFRTAG_INVAID;
+	switch (tagSetId) {
+	case JFR:
+		jfrLogTagCombination = COMBINATION_JFR;
+		break;
+	case JFR_SYSTEM:
+		jfrLogTagCombination = COMBINATION_JFR_SYSTEM;
+		break;
+	case JFR_SYSTEM_EVENT:
+		jfrLogTagCombination = COMBINATION_JFR_SYSTEM_EVENT;
+		break;
+	case JFR_SYSTEM_SETTING:
+		jfrLogTagCombination = COMBINATION_JFR_SYSTEM_SETTING;
+		break;
+	case JFR_SYSTEM_BYTECODE:
+		jfrLogTagCombination = COMBINATION_JFR_SYSTEM_BYTECODE;
+		break;
+	case JFR_SYSTEM_PARSER:
+		jfrLogTagCombination = COMBINATION_JFR_SYSTEM_PARSER;
+		break;
+	case JFR_SYSTEM_METADATA:
+		jfrLogTagCombination = COMBINATION_JFR_SYSTEM_METADATA;
+		break;
+	case JFR_SYSTEM_STREAMING:
+		jfrLogTagCombination = COMBINATION_JFR_SYSTEM_STREAMING;
+		break;
+	case JFR_SYSTEM_THROTTLE:
+		jfrLogTagCombination = COMBINATION_JFR_SYSTEM_THROTTLE;
+		break;
+	case JFR_METADATA:
+		jfrLogTagCombination = COMBINATION_JFR_METADATA;
+		break;
+	case JFR_EVENT:
+		jfrLogTagCombination = COMBINATION_JFR_EVENT;
+		break;
+	case JFR_SETTING:
+		jfrLogTagCombination = COMBINATION_JFR_SETTING;
+		break;
+	case JFR_DCMD:
+		jfrLogTagCombination = COMBINATION_JFR_DCMD;
+		break;
+	case JFR_START:
+		jfrLogTagCombination = COMBINATION_JFR_START;
+		break;
+	default:
+		break;
+	}
+	return jfrLogTagCombination;
+}
 
 void JNICALL
 Java_jdk_jfr_internal_JVM_registerNatives(JNIEnv *env, jclass clazz)
@@ -277,20 +355,148 @@ Java_jdk_jfr_internal_JVM_getTicksFrequency(JNIEnv *env, jobject obj)
 }
 
 /**
- * TODO Note this is a draft implementation.
+ * Build JFR log tag string separated by ','.
+ * A few examples:
+ * COMBINATION_JFR -> jfr
+ * COMBINATION_JFR_EVENT -> jfr,event
+ * COMBINATION_JFR_SYSTEM_PARSER -> jfr,system,parser
+ *
+ * @param jfrLogTagCombination[in] one of JFRLogTagCombination
+ * @param buffer[in] the buffer pointer
+ * @param bufferSize[in] the buffer size which is sufficent
  */
 static void
-logJFRMessage(J9VMThread *currentThread, j9object_t stringMessage)
+buildJFRLogTagString(jint jfrLogTagCombination, char *buffer, size_t bufferSize)
+{
+	bool firstTag = true;
+	buffer[0] = '\0';
+
+	/* Check each tag in order according to j9nonbuilder.h/JFRLogTag, and append if present. */
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_JFR)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_JFR, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_SYSTEM)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_SYSTEM, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_EVENT)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_EVENT, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_SETTING)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_SETTING, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_BYTECODE)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_BYTECODE, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_PARSER)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_PARSER, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_METADATA)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_METADATA, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_STREAMING)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_STREAMING, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_THROTTLE)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_THROTTLE, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_DCMD)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_DCMD, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+	if (J9_ARE_ANY_BITS_SET(jfrLogTagCombination, TAG_START)) {
+		if (!firstTag) {
+			strncat(buffer, ",", bufferSize - strlen(buffer) - 1);
+		}
+		strncat(buffer, JFRLOGTAG_STRING_START, bufferSize - strlen(buffer) - 1);
+		firstTag = false;
+	}
+}
+
+static void
+logJFRMessage(J9VMThread *currentThread, jint jfrLogTagCombination, jint level, j9object_t stringMessage)
 {
 	PORT_ACCESS_FROM_VMC(currentThread);
 	J9InternalVMFunctions *vmFuncs = currentThread->javaVM->internalVMFunctions;
 	char buf[JFR_STRING_BUFFER_SIZE];
 
-	J9UTF8* utf8Message = vmFuncs->copyStringToJ9UTF8WithMemAlloc(currentThread, stringMessage, J9_STR_NONE, "", 0, buf, JFR_STRING_BUFFER_SIZE);
+	J9UTF8 *utf8Message = vmFuncs->copyStringToJ9UTF8WithMemAlloc(currentThread, stringMessage, J9_STR_NONE, "", 0, buf, sizeof(buf));
 	if (NULL == utf8Message) {
 		vmFuncs->setNativeOutOfMemoryError(currentThread, 0, 0);
 	} else {
-		j9tty_printf(PORTLIB, "%.*s\n", J9UTF8_LENGTH(utf8Message), J9UTF8_DATA(utf8Message));
+		char logTagBuffer[JFR_STRING_BUFFER_SIZE];
+		UDATA msgLength = J9UTF8_LENGTH(utf8Message);
+		UDATA logMsgLength = 0;
+		char *logMsg = NULL;
+
+		Trc_JCL_logJFRMessage_incoming(currentThread, jfrLogTagCombination, level, msgLength, J9UTF8_DATA(utf8Message));
+		buildJFRLogTagString(jfrLogTagCombination, logTagBuffer, JFR_STRING_BUFFER_SIZE);
+		logMsgLength = j9str_printf(NULL, 0, "[%s][%s] %.*s\n", jfrLogLevelLookup[level], logTagBuffer, msgLength, J9UTF8_DATA(utf8Message));
+		logMsg = (char *)j9mem_allocate_memory(logMsgLength, J9MEM_CATEGORY_JFR);
+		if (NULL != logMsg) {
+			j9str_printf(logMsg, logMsgLength, "[%s][%s] %.*s\n", jfrLogLevelLookup[level], logTagBuffer, msgLength, J9UTF8_DATA(utf8Message));
+			Trc_JCL_logJFRMessage_generated(currentThread, logMsgLength, logMsg);
+
+			switch (currentThread->javaVM->jfrState.jfrLogOutput) {
+			case JFROUTPUT_STDOUT:
+				j9file_printf(J9PORT_TTY_OUT, "%s", logMsg);
+				break;
+			case JFROUTPUT_STDERR:
+				j9tty_printf(PORTLIB, "%s", logMsg);
+				break;
+			case JFROUTPUT_FILE:
+				{
+					UDATA written = j9file_write(currentThread->javaVM->jfrState.logFileDescriptor, logMsg, logMsgLength);
+					if (logMsgLength != written) {
+						/* Ignore log file writing error. */
+						Trc_JCL_JFRLOG_fileWrite_error(currentThread, logMsgLength, written);
+					}
+				}
+				break;
+			default:
+				Assert_JCL_unreachable();
+				break;
+			}
+			j9mem_free_memory(logMsg);
+		}
 		if (buf != (char*)utf8Message) {
 			j9mem_free_memory(utf8Message);
 		}
@@ -313,7 +519,7 @@ Java_jdk_jfr_internal_JVM_log(JNIEnv *env, jclass clazz, jint tagSetId, jint lev
 		vmFuncs->setCurrentException(currentThread, J9VMCONSTANTPOOL_JAVALANGNULLPOINTEREXCEPTION, NULL);
 	} else {
 		j9object_t stringMessage = J9_JNI_UNWRAP_REFERENCE(message);
-		logJFRMessage(currentThread, stringMessage);
+		logJFRMessage(currentThread, jfrLogTagLookup(tagSetId), level, stringMessage);
 	}
 
 	vmFuncs->internalExitVMToJNI(currentThread);
@@ -337,9 +543,11 @@ Java_jdk_jfr_internal_JVM_logEvent(JNIEnv *env, jclass clazz, jint level, jobjec
 	} else {
 		j9object_t stringArray = J9_JNI_UNWRAP_REFERENCE(lines);
 		U_32 numOfLines = J9INDEXABLEOBJECT_SIZE(currentThread, stringArray);
+		/* This matches jdk.jfr.internal.JVM.logEvent(). */
+		JFRLogTagCombination logTagCombination = system ? COMBINATION_JFR_SYSTEM_EVENT : COMBINATION_JFR_EVENT;
 
 		for (U_32 i = 0; i < numOfLines; i++) {
-			logJFRMessage(currentThread, J9JAVAARRAYOFOBJECT_LOAD(currentThread, stringArray, i));
+			logJFRMessage(currentThread, logTagCombination, level, J9JAVAARRAYOFOBJECT_LOAD(currentThread, stringArray, i));
 		}
 	}
 
@@ -347,9 +555,6 @@ Java_jdk_jfr_internal_JVM_logEvent(JNIEnv *env, jclass clazz, jint level, jobjec
 }
 #endif /* JAVA_SPEC_VERSION >= 17 */
 
-/**
- * Note this is a draft implementation.
- */
 void JNICALL
 Java_jdk_jfr_internal_JVM_subscribeLogLevel(JNIEnv *env, jclass clazz, jobject lt, jint tagSetId)
 {
@@ -366,13 +571,18 @@ Java_jdk_jfr_internal_JVM_subscribeLogLevel(JNIEnv *env, jclass clazz, jobject l
 	if (-1 != tagSetLevelOffset) {
 		MM_ObjectAccessBarrierAPI objectAccessBarrier = MM_ObjectAccessBarrierAPI(currentThread);
 
-		/* TODO: For now WARN is the default for most tags; eventually -Xlog will be
-		 * parsed to determine the actual level. JFR_START is special-cased to INFO so
-		 * the -XX:StartFlightRecording banner ("Started recording ...") is visible by
-		 * default.
-		 */
-		I_32 defaultLevel = (J9JFR_LOGTAG_JFR_START == tagSetId) ? LOG_LEVEL_INFO : LOG_LEVEL_WARN;
-		objectAccessBarrier.inlineMixedObjectStoreI32(currentThread, logTagInstance, tagSetLevelOffset, defaultLevel, TRUE);
+		IDATA idOffset = VM_VMHelpers::findinstanceFieldOffset(currentThread, loggerClass, "id", "I");
+		if (-1 != idOffset) {
+			I_32 logTagID = objectAccessBarrier.inlineMixedObjectReadI32(currentThread, logTagInstance, idOffset, FALSE);
+			I_32 defaultLevel = (JFR_START == tagSetId) ? LOG_LEVEL_INFO : (I_32)vm->jfrState.jfrLogTagSet[logTagID];
+			/* JFR_START is special-cased to INFO so the -XX:StartFlightRecording banner ("Started recording ...")
+			 * is visible by default.
+			 */
+			Trc_JCL_JFRLOG_subscribeLogLevel(currentThread, logTagInstance, tagSetLevelOffset, idOffset, logTagID, defaultLevel);
+			objectAccessBarrier.inlineMixedObjectStoreI32(currentThread, logTagInstance, tagSetLevelOffset, defaultLevel, TRUE);
+		} else {
+			vmFuncs->setCurrentException(currentThread, J9VMCONSTANTPOOL_JAVALANGINTERNALERROR, NULL);
+		}
 	} else {
 		vmFuncs->setCurrentException(currentThread, J9VMCONSTANTPOOL_JAVALANGINTERNALERROR, NULL);
 	}
