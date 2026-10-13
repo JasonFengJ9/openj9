@@ -48,7 +48,6 @@ public class JFR {
 	static final String DIAGNOSTICS_JFR_DUMP = "JFR.dump";
 	static final String DIAGNOSTICS_JFR_STOP = "JFR.stop";
 	static final String DIAGNOSTICS_JFR_CONFIGURE = "JFR.configure";
-	static final String DIAGNOSTICS_JFR_CHECK = "JFR.check";
 
 	private static final int ERROR_NO_TIME_UNIT = -1;
 	private static final int ERROR_NO_TIME_DURATION = -2;
@@ -400,15 +399,6 @@ public class JFR {
 				if (LOGGING_ENABLED == loggingStatus) {
 					for (String str : jfrDcmdResult) {
 						IPC.logMessage("JFR.configure Result string = " + str);
-					}
-				}
-				result = DiagnosticProperties.makeStringResult(Stream.of(jfrDcmdResult).collect(Collectors.joining("\n")));
-				break;
-			case DIAGNOSTICS_JFR_CHECK:
-				jfrDcmdResult = access.doJFRDCmdDumpExecute(execArgs);
-				if (LOGGING_ENABLED == loggingStatus) {
-					for (String str : jfrDcmdResult) {
-						IPC.logMessage("JFR.dump Result string = " + str);
 					}
 				}
 				result = DiagnosticProperties.makeStringResult(Stream.of(jfrDcmdResult).collect(Collectors.joining("\n")));
