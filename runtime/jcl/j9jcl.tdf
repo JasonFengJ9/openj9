@@ -720,3 +720,5 @@ TraceEvent=Trc_JCL_JFRLOG_subscribeLogLevel Overhead=1 Level=3 Template="JVM.sub
 TraceException=Trc_JCL_JFRLOG_fileWrite_error Overhead=1 Level=1 Template="logJFRMessageHelper() j9file_write(%zd) returns %zd"
 TraceEvent=Trc_JCL_JFRLOG_incoming Overhead=1 Level=3 Template="logJFRMessageHelper() jfrLogTagCombination(0x%x) level(%d) utf8Message = %s"
 TraceEvent=Trc_JCL_JFRLOG_generated Overhead=1 Level=3 Template="logJFRMessageHelper() generated message (%zd) = %s"
+
+TraceAssert=Assert_JCL_JAVA_notNull noEnv Overhead=1 Level=1 Assert="(P1) != NULL"
